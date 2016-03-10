@@ -1,5 +1,4 @@
 
-
 cdef class Handle:
 
     property loop:
@@ -9,6 +8,11 @@ cdef class Handle:
 
     def __cinit__(self, *args, **kwargs):
         self.uv_handle = NULL
+
+    property _cpointer:
+        def __get__(self):
+            return <int> self.uv_handle
+
 
     def is_active(self):
         """Returns true if the handle is active, false if it’s inactive.

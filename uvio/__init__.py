@@ -23,13 +23,14 @@ def release():
     yield Idle()
 
 
-@asyncio.coroutine
-def worker(callback, *args, **kwargs):
-    result = yield Worker(callback, *args, **kwargs)
-    return result
+# @asyncio.coroutine
+# def worker(callback, *args, **kwargs):
+#     result = yield Worker(callback, *args, **kwargs)
+#     return result
 
 @asyncio.coroutine
 def connect():
-    result = yield client.connect(loop, "google.com", 80)
+    connector = client.connect(loop, "google.com", 80)
+    result = yield connector
     return result
 

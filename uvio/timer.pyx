@@ -5,32 +5,31 @@ from .uv cimport *
 from .loop cimport Loop, uv_python_callback
 from .handle cimport Handle
 
-from .loop import Loop
 import inspect
+import time
 
-cdef class Timer(Handle):
+from .loop import Loop
+from .futures import Future
 
-    cpdef object coro
-    cpdef float timeout
-    cpdef int repeat
 
-    def __init__(self, timeout, repeat=False):
+class Timer(Handle, Future):
+
+    def __init__(self, callback, timeout, repeat=False):
 
         self.timeout = timeout
+        self._callback = callback
         self.repeat = repeat
-        self.coro = None
-
-    def start(self, Loop loop, coro):
 
 
+    def _uv_start(Handle self, Loop loop):
+
+        self._started = time.time()
         if self.is_active():
             raise RuntimeError("This handle is already active")
 
         self.uv_handle = <uv_handle_t *> malloc(sizeof(uv_timer_t))
         uv_timer_init(loop.uv_loop, <uv_timer_t*> self.uv_handle);
 
-
-        self.coro = coro
         self.uv_handle.data = <void*> (<PyObject*> self)
         Py_INCREF(self)
 
@@ -41,19 +40,19 @@ cdef class Timer(Handle):
             self.repeat
         )
 
+        return self
 
-
-    def __call__(self):
-        if inspect.iscoroutine(self.coro):
-            try:
-                value = self.coro.send(None)
-            except StopIteration:
-                pass
-        else:
-            self.coro()
 
     def __repr__(self):
         return "<uv.Timer active={} timout={:.4f}s callback={}>".format(
-            self.is_active(), self.timeout, self.coro
+            self.is_active(), self.timeout, self._callback
         )
 
+    def set_completed(self):
+
+        self._completed = time.time()
+
+        if (self._callback):
+            self._callback()
+
+        Future.set_completed(self)

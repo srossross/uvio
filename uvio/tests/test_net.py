@@ -10,7 +10,7 @@ class Test(unittest.TestCase):
     def test_client_connect(self):
 
         async def connection():
-            client = uvio.net.Client()
+            client = uvio.net.Client("google.com", 80)
 
             @client.data
             def client_data(client, data):
@@ -21,7 +21,8 @@ class Test(unittest.TestCase):
                 pass
 
             print ("connect")
-            await client.connect(loop, "google.com", 80)
+            await client
+            print ("connected")
 
 
         loop = Loop.create()

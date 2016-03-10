@@ -16,10 +16,9 @@ cdef void uv_python_handle_exceptions(uv_idle_t* handle) with gil:
 
 
 cdef void uv_python_callback(uv_handle_t* handle) with gil:
-
     callback = <object> handle.data
     try:
-        callback()
+        callback.set_completed()
     except BaseException as err:
         loop = <object> handle.loop.data
         loop.catch(err)
@@ -34,13 +33,13 @@ cdef class Loop:
         self._exception_handler = None
 
     def next_tick(self, callback):
-        idle = Idle()
-        idle.start(self, callback)
+        idle = Idle(callback)
+        idle.start(self)
         return idle
 
     def set_timeout(self, callback, timeout, repeat=False):
-        py_timer = Timer(timeout, repeat)
-        py_timer.start(self, callback)
+        py_timer = Timer(callback, timeout, repeat)
+        py_timer.start(self)
         return py_timer
 
     def __repr__(self):

@@ -10,6 +10,8 @@ import os
 import inspect
 import asyncio
 
+from .futures import Future
+
 cdef class FileHandle:
     cdef uv_fs_t* uv_fs
 
@@ -26,32 +28,34 @@ cdef void uv_python_fs_callback(uv_fs_t* handle) with gil:
 
     callback = <object> handle.data
     try:
-        callback()
+        callback.set_completed()
     except BaseException as err:
         loop = <object> handle.loop.data
         loop.catch(err)
 
     Py_DECREF(callback)
 
-cdef class Read(FileHandle):
-
-    cdef uv_file fileno
-    cdef ssize_t n
-    cdef object buf
-    cdef object coro
+class Read(FileHandle, Future):
 
 
     def __init__(self, fileno, n):
         self.fileno = fileno
         self.n = n
         self.buf = bytearray(n)
-        self.uv_fs = NULL
+        self._is_active = False
 
-    def start(self, Loop loop, coro):
+    def result(self):
+        return self.buf.decode()
+
+    def is_active(self):
+        return self._is_active and not self._done
+
+    def _uv_start(FileHandle self, Loop loop):
+
+        self._is_active = True
 
         self.uv_fs = <uv_fs_t *> malloc(sizeof(uv_fs_t));
 
-        self.coro = coro
         self.uv_fs.data = <void*> (<PyObject*> self)
         Py_INCREF(self)
 
@@ -61,21 +65,6 @@ cdef class Read(FileHandle):
             loop.uv_loop, self.uv_fs, self.fileno,
             &bufs, 1, -1, uv_python_fs_callback
         )
-
-    def __call__(self):
-
-
-        if inspect.iscoroutine(self.coro):
-            try:
-                value = self.coro.send(self.buf.decode())
-            except StopIteration:
-                return
-
-            value.start(self.loop, self.coro)
-
-        else:
-            self.coro(self.buf.decode())
-
 
 
 
@@ -134,15 +123,12 @@ cdef class AsyncFile(FileHandle):
 
         return stat_handle.statbuf.st_size
 
-    @asyncio.coroutine
     def read(self, n=-1):
 
         if n <= 0:
             n = self._size()
 
-        data = yield Read(self.uv_fs.result, n)
-
-        return data
+        return Read(self.uv_fs.result, n)
 
 
 def fstat(FileHandle fd):

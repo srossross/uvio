@@ -1,7 +1,7 @@
 import unittest
 
 from uvio.loop import Loop
-from uvio.idle import Idle
+from uvio.timer import Timer
 from uvio.handle import Handle
 
 class Test(unittest.TestCase):
@@ -13,30 +13,22 @@ class Test(unittest.TestCase):
         called = False
 
         def callback():
-            print("callback")
             nonlocal called
             called = True
 
-        idle = Idle(callback)
+        timer = Timer(callback, 0.05)
 
-        self.assertFalse(idle.is_active())
+        self.assertFalse(timer.is_active())
 
-        print("idle._cpointer",idle._cpointer)
-        print("start")
-        idle.start(loop)
+        timer.start(loop)
 
-        print("idle._cpointer",idle._cpointer)
-
-        self.assertTrue(idle.is_active())
-        self.assertFalse(idle.is_closing())
+        self.assertTrue(timer.is_active())
+        self.assertFalse(timer.is_closing())
         self.assertFalse(called)
 
-        print("run")
         loop.run()
-        print("done")
 
         self.assertTrue(called)
-
 
 
 if __name__ == '__main__':
