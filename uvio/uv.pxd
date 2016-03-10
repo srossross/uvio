@@ -14,7 +14,7 @@ cdef extern from "uv.h":
     int uv_loop_close(uv_loop_t*)
     uv_loop_t* uv_default_loop()
 
-    void uv_run(uv_loop_t*, uv_run_mode)
+    void uv_run(uv_loop_t*, uv_run_mode) nogil
     void uv_stop(uv_loop_t*)
 
     int uv_loop_alive(uv_loop_t*)
@@ -138,6 +138,7 @@ cdef extern from "uv.h":
 
     ctypedef void (*uv_fs_cb)(uv_fs_t* handle)
 
+
     int uv_fs_open(uv_loop_t*, uv_fs_t*, char*, int flags, int mode, uv_fs_cb cb)
     int uv_fs_close(uv_loop_t*, uv_fs_t*, uv_file, uv_fs_cb)
 
@@ -147,6 +148,16 @@ cdef extern from "uv.h":
 
     char* uv_strerror(int)
 
+
+
+    ctypedef struct uv_work_t:
+        void* data;
+        uv_loop_t* loop
+
+    ctypedef void (*uv_work_cb)(uv_work_t* req)
+    ctypedef void (*uv_after_work_cb)(uv_work_t* req, int status)
+
+    int uv_queue_work(uv_loop_t* loop, uv_work_t* req, uv_work_cb work_cb, uv_after_work_cb after_work_cb)
 
     enum: O_CREAT
     enum: O_EXCL

@@ -1,7 +1,7 @@
 
 from uv cimport *
 
-cdef void uv_python_callback(uv_handle_t* handle)
+cdef void uv_python_callback(uv_handle_t* handle) with gil
 
 cdef class Loop:
     cpdef object _exceptions

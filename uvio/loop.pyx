@@ -1,5 +1,6 @@
 from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
+from libc.stdio cimport printf
 
 from .uv cimport *
 
@@ -9,12 +10,12 @@ from .idle import Idle
 from .timer import Timer
 
 
-cdef void uv_python_handle_exceptions(uv_idle_t* handle):
+cdef void uv_python_handle_exceptions(uv_idle_t* handle) with gil:
     loop = <object> handle.loop.data
     loop.handle_exceptions()
 
 
-cdef void uv_python_callback(uv_handle_t* handle):
+cdef void uv_python_callback(uv_handle_t* handle) with gil:
 
     callback = <object> handle.data
     try:
@@ -65,7 +66,8 @@ cdef class Loop:
 
         uv_idle_start(uv_handle, uv_python_handle_exceptions);
 
-        uv_run(self.uv_loop, UV_RUN_DEFAULT)
+        with nogil:
+            uv_run(self.uv_loop, UV_RUN_DEFAULT)
 
         if self.exceptions:
             value = self.exceptions[0][1]

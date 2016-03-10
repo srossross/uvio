@@ -22,7 +22,7 @@ cdef class FileHandle:
             if <int> self.uv_fs:
                 return <object> self.uv_fs.loop.data
 
-cdef void uv_python_fs_callback(uv_fs_t* handle):
+cdef void uv_python_fs_callback(uv_fs_t* handle) with gil:
 
     callback = <object> handle.data
     try:

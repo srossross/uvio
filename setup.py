@@ -9,10 +9,13 @@ extensions = [
     Extension("uvio.idle", ["uvio/idle.pyx"], libraries=['uv']),
     Extension("uvio.timer", ["uvio/timer.pyx"], libraries=['uv']),
     Extension("uvio.fs", ["uvio/fs.pyx"], libraries=['uv']),
+    Extension("uvio.subprocess", ["uvio/subprocess.pyx"], libraries=['uv']),
+    Extension("uvio.stream", ["uvio/stream.pyx"], libraries=['uv']),
+    Extension("uvio.worker", ["uvio/worker.pyx"], libraries=['uv']),
 
 ]
 
 setup(
-  name = 'uvio',
+  name = 'uv',
   ext_modules = cythonize(extensions),
 )
