@@ -176,3 +176,37 @@ cdef extern from "uv.h":
     enum: O_WRONLY
     enum: O_RDWR
 
+
+
+    ctypedef struct uv_stream_t:
+        void* data;
+        uv_loop_t* loop
+
+    struct sockaddr_in:
+        pass
+
+    ctypedef struct uv_tcp_t:
+        void* data;
+        uv_loop_t* loop
+
+    struct sockaddr
+    ctypedef void (*uv_connection_cb)(uv_stream_t* server, int status);
+
+    int uv_ip4_addr(char* ip, int port, sockaddr_in* addr)
+    int uv_tcp_init(uv_loop_t*, uv_tcp_t* handle);
+    int uv_tcp_bind(uv_tcp_t* handle, const sockaddr* addr, unsigned int flags);
+
+    int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb);
+
+
+    ctypedef struct uv_connect_t:
+        void* data;
+        uv_loop_t* loop
+        uv_stream_t* handle
+
+    ctypedef void (*uv_connect_cb)(uv_connect_t* req, int status)
+
+    int uv_tcp_connect(uv_connect_t* req, uv_tcp_t* handle, const sockaddr* addr, uv_connect_cb cb)
+
+
+
