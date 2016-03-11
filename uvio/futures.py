@@ -35,10 +35,9 @@ class Future:
 
 
     def set_completed(self, error=None):
-        print("set_completed", error)
 
         if error:
-            self._exec_info[1] = error
+            self._exec_info = (type(error), error, None)
 
         self._done  = True
         if self._coro is None:

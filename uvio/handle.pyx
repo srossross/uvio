@@ -25,6 +25,9 @@ cdef class Handle:
 
         return bool(<int>self.uv_handle) and bool(uv_is_active(self.uv_handle))
 
+    def close(self):
+        uv_close(self.uv_handle, NULL);
+
     def is_closing(self):
         "Returns true if the handle is closing or closed, false otherwise"
         return bool(uv_is_closing(self.uv_handle))

@@ -19,14 +19,21 @@ cdef extern from "uv.h":
 
     int uv_loop_alive(uv_loop_t*)
 
+    ctypedef struct uv_req_t:
+        void* data
+        uv_req_type type
+
+
 
     ctypedef struct uv_handle_t:
       void* data
       uv_loop_t * loop
 
+    ctypedef void (*uv_close_cb)(uv_handle_t* handle)
+
     int uv_is_active(uv_handle_t*)
     int uv_is_closing(uv_handle_t*)
-    int uv_close(uv_handle_t*)
+    int uv_close(uv_handle_t*, uv_close_cb)
     void uv_ref(uv_handle_t*)
     void uv_unref(uv_handle_t*)
     int uv_has_ref(uv_handle_t*)
@@ -197,11 +204,10 @@ cdef extern from "uv.h":
     int uv_tcp_bind(uv_tcp_t* handle, const sockaddr* addr, unsigned int flags);
 
     int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb);
-
+    int uv_accept(uv_stream_t* server, uv_stream_t* client);
 
     ctypedef struct uv_connect_t:
         void* data;
-        uv_loop_t* loop
         uv_stream_t* handle
 
     ctypedef void (*uv_connect_cb)(uv_connect_t* req, int status)
@@ -209,4 +215,32 @@ cdef extern from "uv.h":
     int uv_tcp_connect(uv_connect_t* req, uv_tcp_t* handle, const sockaddr* addr, uv_connect_cb cb)
 
 
+    int uv_is_readable(const uv_stream_t* handle)
+    int uv_is_writable(const uv_stream_t* handle)
 
+    ctypedef struct uv_write_t:
+        void* data;
+
+        uv_stream_t* send_handle;
+        uv_stream_t* handle;
+
+    ctypedef void (*uv_write_cb)(uv_write_t* req, int status)
+
+    int uv_write(uv_write_t* req,
+                uv_stream_t* handle,
+                const uv_buf_t bufs[],
+                unsigned int nbufs,
+                uv_write_cb cb)
+
+    ctypedef void (*uv_alloc_cb)(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
+    ctypedef void (*uv_close_cb)(uv_handle_t* handle)
+
+
+    ctypedef void (*uv_read_cb)(uv_stream_t* stream,
+                           ssize_t nread,
+                           const uv_buf_t* buf);
+
+    int uv_read_start(uv_stream_t*,
+                            uv_alloc_cb alloc_cb,
+                            uv_read_cb read_cb)
+    int uv_read_stop(uv_stream_t*)

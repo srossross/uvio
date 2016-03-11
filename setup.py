@@ -13,6 +13,7 @@ extensions = [
     Extension("uvio.stream", ["uvio/stream.pyx"], libraries=['uv']),
     Extension("uvio.worker", ["uvio/worker.pyx"], libraries=['uv']),
     Extension("uvio.net", ["uvio/net.pyx"], libraries=['uv']),
+    Extension("uvio.request", ["uvio/request.pyx"], libraries=['uv']),
 
 ]
 
