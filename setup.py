@@ -11,7 +11,7 @@ extensions = [
     Extension("uvio.fs", ["uvio/fs.pyx"], libraries=['uv']),
     Extension("uvio.subprocess", ["uvio/subprocess.pyx"], libraries=['uv']),
     Extension("uvio.stream", ["uvio/stream.pyx"], libraries=['uv']),
-    Extension("uvio.worker", ["uvio/worker.pyx"], libraries=['uv']),
+    Extension("uvio.workers", ["uvio/workers.pyx"], libraries=['uv']),
     Extension("uvio.net", ["uvio/net.pyx"], libraries=['uv']),
     Extension("uvio.request", ["uvio/request.pyx"], libraries=['uv']),
 

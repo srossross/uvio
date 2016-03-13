@@ -20,9 +20,20 @@ class Test(unittest.TestCase):
     def test_server_connect(self):
 
         async def handle(server, client):
+
+            @client.data
+            def echo(buf):
+                print("on data:", buf)
+                client.write(b"echo: " + buf)
+
+            @client.end
+            def end():
+                print("on client end")
+
             print("handle!")
-            buf = await client.read(3)
-            print("client.read buf", buf)
+            # buf = await client.read(3)
+
+            # print("client.read buf", buf)
 
         server = uvio.net.Server(handle)
         loop = Loop.create()
@@ -33,13 +44,20 @@ class Test(unittest.TestCase):
         async def connection():
             print("start connection")
             client = await uvio.net.Connect("127.0.0.1", 8281)
+            @client.data
+            def echo(buf):
+                print("echoed:", buf)
+                client.close()
+
             print("connected", client)
             print("is_closing", client.is_closing())
             print("is_active", client.is_active())
-            print("await write",  await client.write(b"buf"))
-            client.close()
 
-            print("closed")
+
+            await client.write(b"this is a test")
+
+            client.shutdown()
+
 
 
         def hello():

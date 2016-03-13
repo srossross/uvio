@@ -2,5 +2,6 @@
 from uv cimport *
 
 cdef class Request:
-    cdef uv_req_t* req
+    cdef uv_any_req req
+
 

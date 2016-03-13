@@ -3,15 +3,12 @@ cdef class Handle:
 
     property loop:
         def __get__(self):
-            if <int> self.uv_handle:
-                return <object> self.uv_handle.loop.data
-
-    def __cinit__(self, *args, **kwargs):
-        self.uv_handle = NULL
+            if <int> self.handle.handle.loop:
+                return <object> self.handle.handle.loop.data
 
     property _cpointer:
         def __get__(self):
-            return <int> self.uv_handle
+            return <int> &self.handle
 
 
     def is_active(self):
@@ -23,29 +20,20 @@ cdef class Handle:
         deactivates the handle again.
         """
 
-        return bool(<int>self.uv_handle) and bool(uv_is_active(self.uv_handle))
+        return bool(uv_is_active(&self.handle.handle))
 
     def close(self):
-        uv_close(self.uv_handle, NULL);
+        uv_close(&self.handle.handle, NULL);
 
     def is_closing(self):
         "Returns true if the handle is closing or closed, false otherwise"
-        return bool(uv_is_closing(self.uv_handle))
+        return bool(uv_is_closing(&self.handle.handle))
 
     def ref(self):
-        if not self.uv_handle:
-            raise Exception("handle has not be started yet")
-        uv_ref(self.uv_handle)
+        uv_ref(&self.handle.handle)
 
     def unref(self):
-        if not self.uv_handle:
-            raise Exception("handle has not be started yet")
-
-        uv_unref(self.uv_handle)
+        uv_unref(&self.handle.handle)
 
     def has_ref(self):
-
-        if not self.uv_handle:
-            return False
-
-        return bool(uv_has_ref(self.uv_handle))
+        return bool(uv_has_ref(&self.handle.handle))

@@ -3,9 +3,10 @@ from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 
 from .uv cimport *
 from .loop cimport Loop, uv_python_callback
-from .stream cimport Stream
-from .loop cimport Loop
+from .handle cimport Handle
 from .request cimport Request
+
+from .stream import Stream
 
 import inspect
 import asyncio
@@ -51,56 +52,49 @@ cdef void uv_python_on_new_connection(uv_stream_t* stream, int status) with gil:
 
 class Server(Stream):
 
-    def __init__(self, handle):
-        self.handle = handle
+    def __init__(self, handler):
+        self.handler = handler
 
-    def accept(Stream self):
+    def accept(Handle self):
 
-        cdef Stream client = Stream()
-        client.uv_handle = <uv_handle_t*> malloc(sizeof(uv_tcp_t))
+        cdef Handle client = Stream()
 
-        uv_tcp_init(self.uv_handle.loop, <uv_tcp_t *> client.uv_handle)
+        uv_tcp_init(self.handle.handle.loop, &client.handle.tcp)
 
-        failure = uv_accept(<uv_stream_t*> self.uv_handle, <uv_stream_t*> client.uv_handle)
+        failure = uv_accept(&self.handle.stream, &client.handle.stream)
 
         if failure:
             client.close()
             msg = "Accept error {}".format(uv_strerror(failure).decode())
             raise IOError(failure,  msg)
         else:
-            self.loop.next_tick(self.handle(self, client))
+            self.loop.next_tick(self.handler(self, client))
 
 
-    def listen(Stream self, Loop loop, host, port, backlog=511):
+    def listen(Handle self, Loop loop, host, port, backlog=511):
 
-        self.uv_handle = <uv_handle_t *> malloc(sizeof(uv_tcp_t));
-        uv_tcp_init(loop.uv_loop, <uv_tcp_t*> self.uv_handle);
+
+        uv_tcp_init(loop.uv_loop, &self.handle.tcp);
 
         cdef sockaddr_in addr
         uv_ip4_addr(host.encode(), port, &addr);
 
-        uv_tcp_bind( <uv_tcp_t*> self.uv_handle, <const sockaddr*> &addr, 0);
+        uv_tcp_bind(&self.handle.tcp, <const sockaddr*> &addr, 0);
 
-        failure = uv_listen(<uv_stream_t*> self.uv_handle, backlog, uv_python_on_new_connection);
+        failure = uv_listen(&self.handle.stream, backlog, uv_python_on_new_connection);
 
         if failure:
             msg = "Listen error {}".format(uv_strerror(failure).decode())
             raise IOError(failure,  msg)
 
-        self.uv_handle.data = <void*> (<PyObject*> self)
+        self.handle.handle.data = <void*> (<PyObject*> self)
         Py_INCREF(self)
-
-
 
 
 cdef class _Connect(Request):
     property loop:
         def __get__(self):
-            return <object> (<uv_connect_t*> self.req).handle.loop.data
-
-    def is_active(self):
-        return <int> self.req
-
+            return <object> self.req.connect.handle.loop.data
 
 
 class Connect(_Connect, Future):
@@ -109,28 +103,21 @@ class Connect(_Connect, Future):
         self.host = host
         self.port = port
 
-
-    def is_active(_Connect self):
-        return <int> self.req and not self._done
-
     def _uv_start(_Connect self, Loop loop):
 
-        cdef Stream client = Stream()
+        cdef Handle client = Stream()
 
-        client.uv_handle = <uv_handle_t *> malloc(sizeof(uv_tcp_t))
-        uv_tcp_init(loop.uv_loop, <uv_tcp_t *> client.uv_handle);
+        uv_tcp_init(loop.uv_loop, &client.handle.tcp);
 
         cdef sockaddr_in addr
         uv_ip4_addr(self.host.encode(), self.port, &addr);
 
-        self.req = <uv_req_t *> malloc(sizeof(uv_connect_t))
-
-        self.req.data = <void*> (<PyObject*> self)
+        self.req.req.data = <void*> (<PyObject*> self)
         Py_INCREF(self)
 
         failure = uv_tcp_connect(
-            <uv_connect_t*> self.req,
-            <uv_tcp_t *> client.uv_handle,
+            &self.req.connect,
+            &client.handle.tcp,
             <const sockaddr*> &addr,
             uv_python_on_connect
         )

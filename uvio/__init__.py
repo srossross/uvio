@@ -1,36 +1,51 @@
-import asyncio
-
+from functools import wraps, partial
+from inspect import iscoroutinefunction
 from .loop import Loop
 from .timer import Timer
 from .idle import Idle
-from .worker import Worker
+from .workers import worker
 from . import fs
 
 get_default_loop = Loop.get_default_loop
 
-@asyncio.coroutine
-def sleep(arg):
-    yield Timer(arg)
+
+def run(*func, timeout=None):
+    if not func:
+        return partial(run, timeout=timeout)
+
+    func = func[0]
+
+    @wraps(func)
+    def inner(self):
+        loop = Loop.create()
 
 
-@asyncio.coroutine
+        if iscoroutinefunction(func):
+            loop.next_tick(func(self))
+        else:
+            loop.next_tick(func)
+
+        if timeout:
+            def stop_loop():
+                loop.stop()
+            timer = loop.set_timeout(stop_loop, timeout)
+            # Don't wait for the timout to exit the loop
+            timer.unref()
+
+        loop.run()
+        loop.close()
+
+    return inner
+
+def sleep(timeout):
+    return Timer(None, timeout)
+
+
 def release():
     """
     Release the currect execution context and return to it in the next tick of the
     event loop
     """
 
-    yield Idle()
-
-
-# @asyncio.coroutine
-# def worker(callback, *args, **kwargs):
-#     result = yield Worker(callback, *args, **kwargs)
-#     return result
-
-@asyncio.coroutine
-def connect():
-    connector = client.connect(loop, "google.com", 80)
-    result = yield connector
-    return result
+    return Idle(None)
 

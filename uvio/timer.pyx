@@ -27,14 +27,14 @@ class Timer(Handle, Future):
         if self.is_active():
             raise RuntimeError("This handle is already active")
 
-        self.uv_handle = <uv_handle_t *> malloc(sizeof(uv_timer_t))
-        uv_timer_init(loop.uv_loop, <uv_timer_t*> self.uv_handle);
 
-        self.uv_handle.data = <void*> (<PyObject*> self)
+        uv_timer_init(loop.uv_loop, &self.handle.timer);
+
+        self.handle.handle.data = <void*> (<PyObject*> self)
         Py_INCREF(self)
 
         uv_timer_start(
-            <uv_timer_t*> self.uv_handle,
+            &self.handle.timer,
             <uv_timer_cb> uv_python_callback,
             int(self.timeout * 1000),
             self.repeat
@@ -56,3 +56,4 @@ class Timer(Handle, Future):
             self._callback()
 
         Future.set_completed(self)
+

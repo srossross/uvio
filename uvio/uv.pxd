@@ -77,6 +77,9 @@ cdef extern from "uv.h":
       long tv_nsec
 
 
+    enum: UV_EOF
+
+
     ctypedef struct uv_stat_t:
       uint64_t st_dev
       uint64_t st_mode
@@ -184,10 +187,18 @@ cdef extern from "uv.h":
     enum: O_RDWR
 
 
+    ctypedef void (*uv_alloc_cb)(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
+    ctypedef void (*uv_read_cb)(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf);
+
+    ctypedef void (*uv_close_cb)(uv_handle_t* handle)
 
     ctypedef struct uv_stream_t:
         void* data;
         uv_loop_t* loop
+
+        uv_alloc_cb alloc_cb
+        uv_read_cb read_cb
+
 
     struct sockaddr_in:
         pass
@@ -224,6 +235,11 @@ cdef extern from "uv.h":
         uv_stream_t* send_handle;
         uv_stream_t* handle;
 
+    ctypedef struct uv_shutdown_t:
+      void* data
+      uv_stream_t* handle
+
+
     ctypedef void (*uv_write_cb)(uv_write_t* req, int status)
 
     int uv_write(uv_write_t* req,
@@ -232,15 +248,101 @@ cdef extern from "uv.h":
                 unsigned int nbufs,
                 uv_write_cb cb)
 
-    ctypedef void (*uv_alloc_cb)(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
-    ctypedef void (*uv_close_cb)(uv_handle_t* handle)
 
-
-    ctypedef void (*uv_read_cb)(uv_stream_t* stream,
-                           ssize_t nread,
-                           const uv_buf_t* buf);
 
     int uv_read_start(uv_stream_t*,
                             uv_alloc_cb alloc_cb,
                             uv_read_cb read_cb)
     int uv_read_stop(uv_stream_t*)
+
+    ctypedef void (*uv_shutdown_cb)(uv_shutdown_t* req, int status);
+
+    int uv_shutdown(uv_shutdown_t* req,
+                    uv_stream_t* handle,
+                    uv_shutdown_cb cb);
+
+
+    ctypedef struct uv_process_t:
+      void *data
+      uv_loop_t* loop
+      int pid
+
+
+    ctypedef struct uv_pipe_t:
+      void *data
+      uv_loop_t* loop
+
+    int uv_pipe_init(uv_loop_t*, uv_pipe_t* handle, int ipc);
+    int uv_pipe_open(uv_pipe_t*, uv_file file);
+    int uv_pipe_bind(uv_pipe_t* handle, const char* name);
+
+    union uv_any_handle:
+    # XX(ASYNC, async)
+    # XX(CHECK, check)
+    # XX(FS_EVENT, fs_event)
+    # XX(FS_POLL, fs_poll)
+      uv_handle_t handle
+      uv_idle_t idle
+      uv_pipe_t pipe
+    # XX(NAMED_PIPE, pipe)
+    # XX(POLL, poll)
+    # XX(PREPARE, prepare)
+      uv_process_t process
+      uv_stream_t stream
+      uv_tcp_t tcp
+      uv_timer_t timer
+    # XX(TTY, tty)
+    # XX(UDP, udp)
+    # XX(SIGNAL, signal)
+
+    union uv_any_req:
+      uv_req_t req
+      uv_connect_t connect
+      uv_write_t write
+      uv_shutdown_t shutdown
+      uv_work_t work
+
+      # XX(UDP_SEND, udp_send)
+      # XX(FS, fs)
+      # XX(WORK, work)
+      # XX(GETADDRINFO, getaddrinfo)
+      # XX(GETNAMEINFO, getnameinfo)
+
+    ctypedef enum uv_stdio_flags:
+      UV_IGNORE
+      UV_CREATE_PIPE
+      UV_INHERIT_FD
+      UV_INHERIT_STREAM
+      UV_READABLE_PIPE
+      UV_WRITABLE_PIPE
+
+    union uv_stdio_container_data:
+      uv_stream_t* stream
+      int fd
+
+    ctypedef struct uv_stdio_container_t:
+      uv_stdio_flags flags
+      uv_stdio_container_data data
+
+
+    ctypedef void (*uv_exit_cb)(uv_process_t*, int64_t exit_status, int term_signal)
+
+    ctypedef int uv_uid_t
+    ctypedef int uv_gid_t
+
+    ctypedef struct uv_process_options_t:
+      uv_exit_cb exit_cb
+      const char* file
+      char** args
+      char** env
+      const char* cwd
+      unsigned int flags
+      int stdio_count
+      uv_stdio_container_t* stdio
+      uv_uid_t uid
+      uv_gid_t gid
+
+    int uv_spawn(uv_loop_t* loop, uv_process_t* handle, const uv_process_options_t* options)
+    int uv_process_kill(uv_process_t* handle, int signum)
+
+

@@ -8,7 +8,7 @@ import sys
 
 from .idle import Idle
 from .timer import Timer
-
+from .futures import Future
 
 cdef void uv_python_handle_exceptions(uv_idle_t* handle) with gil:
     loop = <object> handle.loop.data
@@ -50,7 +50,11 @@ cdef class Loop:
             return self._exceptions
 
     def catch(self, err):
-        self._exceptions.append(sys.exc_info())
+        etype, evalue, traceback = sys.exc_info()
+        if evalue is None:
+            evalue = err
+
+        self._exceptions.append((etype, evalue, traceback))
 
     def run(self):
 
@@ -147,3 +151,19 @@ cdef class Loop:
 
 
         return loop
+
+class get_current_loop(Future):
+    _is_active = False
+
+    def _uv_start(self, loop):
+        self._result = loop
+        if self._coro:
+            loop.next_tick(self._coro)
+
+    def is_active(self):
+        return self._is_active
+
+    def _uv_start(self, loop):
+        self._is_active = True
+        self.loop = loop
+

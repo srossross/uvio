@@ -2,10 +2,9 @@
 import unittest
 
 from uvio.loop import Loop
-import uvio
-from uvio.handle import Handle
-
+from uvio.worker import worker
 import time
+
 class Test(unittest.TestCase):
 
     def test_simple_worker(self):

@@ -1,6 +1,8 @@
 import unittest
 
-from uvio.loop import Loop
+from uvio.loop import Loop, get_current_loop
+
+
 class Test(unittest.TestCase):
 
     def test_default_loop(self):
@@ -10,6 +12,24 @@ class Test(unittest.TestCase):
 
         self.assertIs(loop1, loop2)
 
+    def test_current_loop(self):
+        loop = Loop.create()
+
+        called = False
+
+        async def callback():
+            nonlocal called
+            called = True
+            self.assertIs(loop, await get_current_loop())
+
+        loop.next_tick(callback())
+
+        self.assertFalse(called)
+
+        loop.run()
+        loop.close()
+
+        self.assertTrue(called)
 
     def test_next_tick(self):
         loop = Loop.create()
@@ -100,8 +120,7 @@ class Test(unittest.TestCase):
 
         self.assertFalse(called)
 
-
-
 if __name__ == '__main__':
     unittest.main()
+
 

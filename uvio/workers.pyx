@@ -7,6 +7,7 @@ from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 
 from .uv cimport *
 from .loop cimport Loop, uv_python_callback
+from .request cimport Request
 
 import sys
 import asyncio
@@ -38,14 +39,10 @@ cdef void python_worker_cleanup(uv_work_t *req, int status) with gil:
         loop = <object> req.loop.data
         loop.catch(err)
 
-    Py_DECREF(worker)
+    worker._set_unactive()
 
 
-cdef class _Worker:
-    cdef uv_work_t* req
-
-
-class Worker(_Worker, Future):
+class worker(Request, Future):
 
     def __init__(self, callback, *args, **kwargs):
 
@@ -54,10 +51,6 @@ class Worker(_Worker, Future):
         self._kwargs = kwargs
         self._result = None
         self._exec_info = (None, None, None)
-        self._is_active = False
-
-    def is_active(self):
-        return self._is_active and not self._done
 
     def execute(self):
         """
@@ -69,34 +62,12 @@ class Worker(_Worker, Future):
         except Exception as err:
             self._exec_info = sys.exc_info()
 
-    def _uv_start(_Worker self, Loop loop):
+    def _uv_start(Request self, Loop loop):
 
-        self._is_active = True
-
-        self.req = <uv_work_t *> malloc(sizeof(uv_work_t))
-
-        self.req.data = <void*> (<PyObject*> self)
-        Py_INCREF(self)
+        self._set_active()
 
         PyEval_InitThreads()
 
-        uv_queue_work(loop.uv_loop, self.req, python_worker_start, python_worker_cleanup);
+        uv_queue_work(loop.uv_loop, &self.req.work, python_worker_start, python_worker_cleanup);
 
-    # def __call__(self):
-
-
-    #     if inspect.iscoroutine(self.coro):
-    #         try:
-    #             if self._exec_info[1]:
-    #                 self.coro.throw(*self._exec_info)
-    #             else:
-    #                 value = self.coro.send(self._result)
-    #                 value.start(self.loop, self.coro)
-    #         except StopIteration:
-    #             pass
-    #     else:
-    #         if self._exec_info[1]:
-    #             raise self._exec_info[1]
-
-    #         self.coro()
 

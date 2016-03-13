@@ -28,17 +28,15 @@ class Idle(Handle, Future):
         if self.is_active():
             raise RuntimeError("This handle is already active")
 
+        uv_idle_init(loop.uv_loop, &self.handle.idle);
 
-        self.uv_handle = <uv_handle_t *> malloc(sizeof(uv_idle_t));
-        uv_idle_init(loop.uv_loop, <uv_idle_t*> self.uv_handle);
-
-        self.uv_handle.data = <void*> (<PyObject*> self)
+        self.handle.handle.data = <void*> (<PyObject*> self)
         Py_INCREF(self)
 
-        uv_idle_start(<uv_idle_t*> self.uv_handle, <uv_idle_cb> uv_python_callback);
+        uv_idle_start(&self.handle.idle, <uv_idle_cb> uv_python_callback);
 
     def stop(Handle self):
-        uv_idle_stop(<uv_idle_t*> self.uv_handle)
+        uv_idle_stop(&self.handle.idle)
 
     def set_completed(self):
         if self.once:
