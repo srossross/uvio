@@ -3,7 +3,7 @@ import unittest
 import os
 from contextlib import contextmanager
 from functools import wraps
-
+import sys
 import uvio
 
 from uvio.subprocess import ProcessOptions, Popen, PIPE
@@ -39,27 +39,41 @@ class Test(unittest.TestCase):
 
     def test_stdio_option_pipe(self):
 
-        stdout=Pipe()
-        opts = ProcessOptions(['ok'], stdout=stdout)
+        pipe1 = Pipe()
+        pipe2 = Pipe()
+        pipe3 = Pipe()
 
-        self.assertIs(opts.stdout, stdout)
+        opts = ProcessOptions(['ok'], stdin=pipe1, stdout=pipe2, stderr=pipe3)
+
+        self.assertIs(opts.stdin, pipe1)
+        self.assertIs(opts.stdout, pipe2)
+
+        self.assertIs(opts.stderr, pipe3)
 
     @run_in_loop
     async def test_stdio_fd(self):
 
         with open("test.out", "w") as fd:
-            p0 = Popen(['python', '-c', 'print("hello")'], stdout=fd)
-            self.assertEqual(await p0, 0)
+            p0 = await Popen(['python', '-c', 'print("hello")'], stdout=fd)
+            self.assertEqual(await p0.returncode, 0)
 
         with open("test.out", "r") as fd:
-            self.assertEqual(fd.read(), 'hello')
+            self.assertEqual(fd.read(), 'hello\n')
 
     @run_in_loop
-    async def test_stdio_create_pipe(self):
+    async def test_stdout_env(self):
 
         stdout_captured = None
         stdout_ended = False
-        p0 = await Popen(['python', '-c', 'print("hello")'], stdout=PIPE)
+        p0 = await Popen(
+            ['python', '-c', 'import os; print("env: {}".format(os.environ["FOOVAR"]))'],
+            stdout=PIPE,
+            env={"FOOVAR": "WOW!"}
+        )
+
+        self.assertIsNotNone(p0.stdout)
+        self.assertIsNone(p0.stdin)
+        self.assertIsNone(p0.stderr)
 
         @p0.stdout.data
         def data(buf):
@@ -71,7 +85,32 @@ class Test(unittest.TestCase):
             nonlocal stdout_ended
             stdout_ended = True
 
-        p0.stdout.resume()
+        self.assertEqual(await p0.returncode, 0)
+
+        self.assertTrue(stdout_ended)
+        self.assertEqual(stdout_captured, b'env: WOW!\n')
+
+
+    @run_in_loop
+    async def test_stdout_pipe(self):
+
+        stdout_captured = None
+        stdout_ended = False
+        p0 = await Popen(['python', '-c', 'print("hello")'], stdout=PIPE)
+
+        self.assertIsNotNone(p0.stdout)
+        self.assertIsNone(p0.stdin)
+        self.assertIsNone(p0.stderr)
+
+        @p0.stdout.data
+        def data(buf):
+            nonlocal stdout_captured
+            stdout_captured = buf
+
+        @p0.stdout.end
+        def end():
+            nonlocal stdout_ended
+            stdout_ended = True
 
         self.assertEqual(await p0.returncode, 0)
 
@@ -79,66 +118,74 @@ class Test(unittest.TestCase):
         self.assertEqual(stdout_captured, b'hello\n')
 
 
-    def test_stdio_create_pipe2(self):
+    @run_in_loop
+    async def test_stderr_pipe(self):
 
-        loop = Loop.create()
+        stderr_captured = None
+        stderr_ended = False
+        p0 = await Popen(['python', '-c', 'import sys; print("hello", file=sys.stderr)'], stderr=PIPE)
 
-        def next_():
-            print("still here!")
-            # stdout.unref()
+        self.assertIsNotNone(p0.stderr)
+        self.assertIsNone(p0.stdout)
+        self.assertIsNone(p0.stdin)
 
-        stdout = Pipe()
-        print('paused? 1', stdout.paused())
-        # stdout.init(loop)
 
-        p0 = Popen(['python', '-c', 'print("hello")'], stdout=stdout)
-
-        print("start?")
-        # stdout.start(loop)
-        p0.start(loop)
-        print("started")
-
-        print('paused? 2', stdout.paused())
-
-        @stdout.data
+        @p0.stderr.data
         def data(buf):
-            print("!!!got this buf", buf)
+            nonlocal stderr_captured
+            stderr_captured = buf
 
-        @stdout.end
+        @p0.stderr.end
         def end():
-            print("!!!stream end")
-
-        print('paused? 3', stdout.paused())
-
-        print("resume")
-        stdout.resume()
-
-        print("lets go")
-
-        async def cb():
+            nonlocal stderr_ended
+            stderr_ended = True
 
 
-            # p0.start(loop)
-            print("ok?")
-            print('p0.stdout', p0.stdout)
+        self.assertEqual(await p0.returncode, 0)
+
+        self.assertTrue(stderr_ended)
+        self.assertEqual(stderr_captured, b'hello\n')
 
 
-            p0.stdout.resume()
-            print("done", await p0)
+    @run_in_loop
+    async def test_stdio_pipe(self):
 
-            # loop.next_tick(cb())
+        stdout_captured = None
+        stdout_ended = False
+        p0 = await Popen(
+            ['python', '-c', 'import sys; print("echo: +{}+".format(sys.stdin.read()))'],
+            stdin=PIPE, stdout=PIPE, stderr=sys.stderr
+        )
 
-        loop.next_tick(cb())
-        loop.set_timeout(next_, .5)
-        loop.run()
+        self.assertIsNotNone(p0.stdout)
+        self.assertIsNotNone(p0.stdin)
+        self.assertIsNone(p0.stderr)
+
+        @p0.stdout.data
+        def data(buf):
+            nonlocal stdout_captured
+            stdout_captured = buf
+
+        @p0.stdout.end
+        def end():
+            nonlocal stdout_ended
+            stdout_ended = True
+
+        p0.stdin.write(b"write me")
+        p0.stdin.close()
+
+        self.assertEqual(await p0.returncode, 0)
+
+        self.assertTrue(stdout_ended)
+        self.assertEqual(stdout_captured, b'echo: +write me+\n')
 
 
     def test_simple(self):
 
         async def echo():
 
-            p0 = Popen(['python', '-c', 'print("hello")'])
-            self.assertEqual(await p0, 0)
+            p0 = await Popen(['python', '-c', 'print("hello")'])
+            self.assertEqual(await p0.returncode, 0)
 
         loop = Loop.create()
         loop.next_tick(echo())

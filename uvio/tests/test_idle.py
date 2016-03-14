@@ -13,7 +13,6 @@ class Test(unittest.TestCase):
         called = False
 
         def callback():
-            print("callback")
             nonlocal called
             called = True
 
@@ -21,19 +20,13 @@ class Test(unittest.TestCase):
 
         self.assertFalse(idle.is_active())
 
-        print("idle._cpointer",idle._cpointer)
-        print("start")
         idle.start(loop)
 
-        print("idle._cpointer",idle._cpointer)
-
         self.assertTrue(idle.is_active())
-        self.assertFalse(idle.is_closing())
+        self.assertFalse(idle.closing())
         self.assertFalse(called)
 
-        print("run")
         loop.run()
-        print("done")
 
         self.assertTrue(called)
 

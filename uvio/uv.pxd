@@ -10,6 +10,7 @@ cdef extern from "uv.h":
     ctypedef struct uv_loop_t:
       void* data
 
+
     int uv_loop_init(uv_loop_t*)
     int uv_loop_close(uv_loop_t*)
     uv_loop_t* uv_default_loop()
@@ -28,6 +29,9 @@ cdef extern from "uv.h":
     ctypedef struct uv_handle_t:
       void* data
       uv_loop_t * loop
+
+    ctypedef void (*uv_walk_cb)(uv_handle_t* handle, void* arg)
+    void uv_walk(uv_loop_t* loop, uv_walk_cb walk_cb, void* arg)
 
     ctypedef void (*uv_close_cb)(uv_handle_t* handle)
 
@@ -156,7 +160,7 @@ cdef extern from "uv.h":
 
     int uv_fs_fstat(uv_loop_t*, uv_fs_t*, uv_file, uv_fs_cb)
 
-    char* uv_strerror(int)
+    const char* uv_strerror(int)
 
 
 
@@ -275,6 +279,7 @@ cdef extern from "uv.h":
     int uv_pipe_init(uv_loop_t*, uv_pipe_t* handle, int ipc);
     int uv_pipe_open(uv_pipe_t*, uv_file file);
     int uv_pipe_bind(uv_pipe_t* handle, const char* name);
+    void uv_pipe_connect(uv_connect_t* req, uv_pipe_t* handle, const char* name, uv_connect_cb cb)
 
     union uv_any_handle:
     # XX(ASYNC, async)

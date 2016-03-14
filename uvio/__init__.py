@@ -1,5 +1,5 @@
 from functools import wraps, partial
-from inspect import iscoroutinefunction
+from inspect import iscoroutine
 from .loop import Loop
 from .timer import Timer
 from .idle import Idle
@@ -19,11 +19,12 @@ def run(*func, timeout=None):
     def inner(self):
         loop = Loop.create()
 
+        coro = func(self)
 
-        if iscoroutinefunction(func):
-            loop.next_tick(func(self))
-        else:
-            loop.next_tick(func)
+        if not iscoroutine(coro):
+            raise Exception("{} is not a coroutine".format(coro))
+
+        loop.next_tick(coro)
 
         if timeout:
             def stop_loop():
@@ -34,6 +35,9 @@ def run(*func, timeout=None):
 
         loop.run()
         loop.close()
+
+        assert coro.cr_await is None, 'coroutine {} should not be running'.format(coro)
+
 
     return inner
 

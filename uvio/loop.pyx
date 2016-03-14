@@ -15,6 +15,22 @@ cdef void uv_python_handle_exceptions(uv_idle_t* handle) with gil:
     loop.handle_exceptions()
 
 
+cdef object uv_python_strerror(int code):
+    msg = <char*> uv_strerror(code)
+    return msg.decode()
+
+cdef void python_walk_cb(uv_handle_t* uv_handle, void* arg):
+    callback = <object> arg
+    if uv_handle.data:
+        handle = <object> uv_handle.data
+
+    try:
+        callback(handle)
+    except BaseException as err:
+        loop = <object> uv_handle.loop.data
+        loop.catch(err)
+
+
 cdef void uv_python_callback(uv_handle_t* handle) with gil:
     callback = <object> handle.data
     try:
@@ -95,6 +111,11 @@ cdef class Loop:
 
     def stop(self):
         uv_stop(self.uv_loop)
+
+    def walk(self, object callback):
+        uv_walk(self.uv_loop, python_walk_cb, <void*> callback)
+        for exc_info in self.exceptions:
+            raise exc_info[1]
 
     property exception_handler:
         def __get__(self):

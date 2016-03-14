@@ -45,28 +45,51 @@ cdef char* copy_py_str(py_str):
 
     cdef bytes py_bytes = py_str.encode()
     cdef int size = len(py_bytes)
-    cdef char* result = <char*> malloc(sizeof(char) * size)
+    cdef char* result = <char*> malloc(sizeof(char) * (size + 1))
 
     memcpy(result, <const char*> py_bytes, size)
+    result[size] = 0
     return result
 
+
+cdef char** copy_list_of_strings(args):
+    cdef char** result = <char**> malloc(sizeof(char*) * (len(args)+1))
+    for i, item in enumerate(args):
+        result[i] = copy_py_str(args[i])
+
+    result[len(args)] = NULL
+
+    return result
+
+cdef free_list_of_strings(char** los):
+
+    cdef i = 0
+
+    while los[i] != NULL:
+        free(los[i])
+        i += 1
+
+    return
+
+
 cdef get_stdio(uv_stdio_container_t* stdio, int i):
-    cdef int descr = 1
-    if stdio[descr].flags == UV_IGNORE:
+
+    if stdio[i].flags == UV_IGNORE:
         return None
-    elif stdio[descr].flags & UV_CREATE_PIPE:
-        pipe = <object> stdio[1].data.stream.data
+    elif stdio[i].flags & UV_CREATE_PIPE:
+        pipe = <object> stdio[i].data.stream.data
         return pipe
-    elif stdio[descr].flags == UV_INHERIT_FD:
+    elif stdio[i].flags == UV_INHERIT_FD:
         return None
     else:
         raise Exception("unknown flags for stdio")
+
 
 cdef set_stdio(uv_stdio_container_t* stdio, i, io, read=False):
 
     cdef Handle apipe
 
-    if io is None:
+    if io is None or io == UV_IGNORE:
         stdio[i].flags = UV_IGNORE
 
     elif isinstance(io, Pipe):
@@ -81,28 +104,31 @@ cdef set_stdio(uv_stdio_container_t* stdio, i, io, read=False):
         stdio[i].data.stream.data = <void*> <object> apipe
 
         Py_INCREF(apipe)
+
     elif hasattr(io, 'fileno'):
         stdio[i].flags = UV_INHERIT_FD
         stdio[i].data.fd = io.fileno()
+
     else:
-        raise TypeError("don't know how to handle stdio={}".format(io))
+        raise TypeError("don't know how to handle stdio type {}".format(io))
+
 
 
 cdef class ProcessOptions:
 
     cdef uv_process_options_t opts
 
-    def __init__(self, args, cwd=None, stdin=None, stdout=None, stderr=None):
+    def __init__(self, args, cwd=None, stdin=None, stdout=None, stderr=None, env=None):
 
         self.opts.exit_cb = uv_python_exit_cb
 
         self.opts.file = copy_py_str(args[0])
 
-        self.opts.args = <char**> malloc(sizeof(char*) * (len(args)+1))
-        for i, item in enumerate(args):
-            self.opts.args[i] = copy_py_str(args[i])
+        self.opts.args = copy_list_of_strings(args)
 
-        self.opts.args[len(args)] = NULL;
+        if env:
+            env_list = ["{}={}".format(key,value) for key,value in env.items()]
+            self.opts.env = copy_list_of_strings(env_list)
 
         if cwd:
             self.opts.cwd = copy_py_str(cwd)
@@ -110,7 +136,10 @@ cdef class ProcessOptions:
         self.opts.stdio_count = 3
         self.opts.stdio = <uv_stdio_container_t*> malloc(sizeof(uv_stdio_container_t) * 3)
 
+
         set_stdio(self.opts.stdio, 0, stdin, read=True)
+
+
         set_stdio(self.opts.stdio, 1, stdout)
         set_stdio(self.opts.stdio, 2, stderr)
 
@@ -123,18 +152,22 @@ cdef class ProcessOptions:
         if self.opts.file:
             free(<void*>self.opts.file)
             self.opts.file = NULL
+
         if self.opts.args:
-            while self.opts.args[i] != NULL:
-                free(<void*>self.opts.args[i])
-
-                i += 1
-
-            free(<void*>self.opts.args)
+            free_list_of_strings(self.opts.args)
+            free(self.opts.args)
             self.opts.args = NULL
+
+        if self.opts.env:
+            free_list_of_strings(self.opts.env)
+            free(self.opts.env)
+            self.opts.env = NULL
 
         if self.opts.cwd:
             free(<void*>self.opts.cwd)
             self.opts.cwd = NULL
+
+
 
 
     property cwd:
@@ -157,9 +190,18 @@ cdef class ProcessOptions:
 
             return result
 
+    property stdin:
+        def __get__(self):
+            return get_stdio(self.opts.stdio, 0)
+
     property stdout:
         def __get__(self):
             return get_stdio(self.opts.stdio, 1)
+
+    property stderr:
+        def __get__(self):
+            return get_stdio(self.opts.stdio, 2)
+
 
 class ReturnCode(Future):
     def __init__(self, process):
@@ -175,12 +217,18 @@ class ReturnCode(Future):
 
 class Popen(Handle, Future):
 
-    def __init__(self, args, stdout=None, **kwargs):
+    def __init__(self, args, stdin=None, stdout=None, stderr=None, **kwargs):
+
+        if stdin == PIPE:
+            stdin = Pipe()
 
         if stdout == PIPE:
             stdout = Pipe()
 
-        self.options = ProcessOptions(args, stdout=stdout, **kwargs)
+        if stderr == PIPE:
+            stderr = Pipe()
+
+        self.options = ProcessOptions(args, stdin=stdin, stdout=stdout, stderr=stderr, **kwargs)
         self._returncode = None
 
     def result(self):
@@ -206,7 +254,8 @@ class Popen(Handle, Future):
 
         for i in range(3):
             if options.opts.stdio[i].flags & UV_CREATE_PIPE:
-                options.stdout.start(loop)
+                pipe = <object> options.opts.stdio[i].data.stream.data
+                pipe.start(loop)
 
         failure = uv_spawn(
             loop.uv_loop,
@@ -221,16 +270,27 @@ class Popen(Handle, Future):
         # TODO: document this. this is just to set up the loop IO
         # There is not really an async operation here
         # we need to use the await tho to get the 'loop' object for initialization
-        if self._coro:
-            loop.next_tick(self._coro)
+
+        for i in range(0, 3):
+            if options.opts.stdio[i].flags & UV_CREATE_PIPE:
+                pipe = <object> options.opts.stdio[i].data.stream.data
+                if pipe.readable():
+                    pipe.resume()
+
+        self.set_completed()
 
 
     @property
     def stdout(self):
         return self.options.stdout
 
+    @property
+    def stdin(self):
+        return self.options.stdin
 
-
+    @property
+    def stderr(self):
+        return self.options.stderr
 
     @property
     def returncode(self):

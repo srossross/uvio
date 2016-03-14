@@ -2,6 +2,7 @@
 from uv cimport *
 
 cdef void uv_python_callback(uv_handle_t* handle) with gil
+cdef object uv_python_strerror(int code)
 
 cdef class Loop:
     cpdef object _exceptions

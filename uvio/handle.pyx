@@ -23,9 +23,12 @@ cdef class Handle:
         return bool(uv_is_active(&self.handle.handle))
 
     def close(self):
+        if self.closing():
+            raise RuntimeError("Can not close handle. it is already closed or closing")
+
         uv_close(&self.handle.handle, NULL);
 
-    def is_closing(self):
+    def closing(self):
         "Returns true if the handle is closing or closed, false otherwise"
         return bool(uv_is_closing(&self.handle.handle))
 

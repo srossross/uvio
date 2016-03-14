@@ -2,7 +2,7 @@
 import unittest
 
 from uvio.loop import Loop
-from uvio.worker import worker
+from uvio.workers import worker
 import time
 
 class Test(unittest.TestCase):
@@ -23,8 +23,8 @@ class Test(unittest.TestCase):
         async def callback():
             nonlocal called
 
-            worker = uvio.worker.Worker(blocking, "Tester")
-            result = await worker
+            worker1 = worker(blocking, "Tester")
+            result = await worker1
 
             self.assertEqual(result, "Hello: Tester")
             called=True
@@ -49,7 +49,7 @@ class Test(unittest.TestCase):
         async def callback():
             nonlocal called
             loop.next_tick(another_callback)
-            result = await uvio.worker.Worker(blocking, "Tester")
+            result = await worker(blocking, "Tester")
             self.assertTrue(another_called)
             self.assertEqual(result, "Hello: Tester")
             called=True
@@ -79,7 +79,7 @@ class Test(unittest.TestCase):
             loop.next_tick(another_callback)
 
             with self.assertRaises(TypeError):
-                await uvio.worker.Worker(blocking, "Tester")
+                await worker(blocking, "Tester")
 
             called = True
 
@@ -120,8 +120,8 @@ class Test(unittest.TestCase):
         async def callback():
             nonlocal called
 
-            worker1 = uvio.worker.Worker(blocking, "Tester1", sleep_for=0.1)
-            worker2 = uvio.worker.Worker(blocking, "Tester2", sleep_for=0.05)
+            worker1 = worker(blocking, "Tester1", sleep_for=0.1)
+            worker2 = worker(blocking, "Tester2", sleep_for=0.05)
 
             worker1.start(loop)
             worker2.start(loop)

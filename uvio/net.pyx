@@ -50,7 +50,10 @@ cdef void uv_python_on_new_connection(uv_stream_t* stream, int status) with gil:
         loop.catch(err)
 
 
-class Server(Stream):
+class TCP(Stream):
+    pass
+
+class Server(TCP):
 
     def __init__(self, handler):
         self.handler = handler
@@ -69,7 +72,6 @@ class Server(Stream):
             raise IOError(failure,  msg)
         else:
             self.loop.next_tick(self.handler(self, client))
-
 
     def listen(Handle self, Loop loop, host, port, backlog=511):
 
@@ -97,7 +99,7 @@ cdef class _Connect(Request):
             return <object> self.req.connect.handle.loop.data
 
 
-class Connect(_Connect, Future):
+class connect(_Connect, Future):
 
     def __init__(self, host, port):
         self.host = host
@@ -105,7 +107,7 @@ class Connect(_Connect, Future):
 
     def _uv_start(_Connect self, Loop loop):
 
-        cdef Handle client = Stream()
+        cdef Handle client = TCP()
 
         uv_tcp_init(loop.uv_loop, &client.handle.tcp);
 
@@ -123,5 +125,13 @@ class Connect(_Connect, Future):
         )
 
         self._result = client
+
+    def set_completed(self, err):
+
+        if not err:
+            self._result.resume()
+
+        Future.set_completed(self, err)
+
 
 

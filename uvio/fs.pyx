@@ -2,7 +2,7 @@ from libc.stdlib cimport malloc, free
 from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 
 from .uv cimport *
-from .loop cimport Loop, uv_python_callback
+from .loop cimport Loop, uv_python_callback, uv_python_strerror
 
 from .loop cimport Loop
 
@@ -93,8 +93,7 @@ cdef class AsyncFile(FileHandle):
         )
 
         if self.uv_fs.result < 0:
-            msg = uv_strerror(self.uv_fs.result).decode()
-            raise IOError(self.uv_fs.result, msg)
+            raise IOError(self.uv_fs.result, uv_python_strerror(self.uv_fs.result))
 
 
     def __enter__(self):

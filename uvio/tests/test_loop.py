@@ -1,7 +1,7 @@
 import unittest
 
 from uvio.loop import Loop, get_current_loop
-
+from uvio.idle import Idle
 
 class Test(unittest.TestCase):
 
@@ -119,6 +119,23 @@ class Test(unittest.TestCase):
         loop.close()
 
         self.assertFalse(called)
+
+    def test_walk(self):
+        loop = Loop.create()
+
+        idle = Idle(None)
+        idle.start(loop)
+
+        handles = []
+
+        @loop.walk
+        def walk(handle):
+            self.assertIs(handle, idle)
+            handles.append(handle)
+
+        self.assertEqual(len(handles), 1)
+
+
 
 if __name__ == '__main__':
     unittest.main()

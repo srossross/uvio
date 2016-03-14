@@ -2,7 +2,7 @@ import unittest
 
 from uvio.loop import Loop
 import uvio
-from uvio.net import Connect
+from uvio.net import connect
 
 import time
 class Test(unittest.TestCase):
@@ -11,7 +11,7 @@ class Test(unittest.TestCase):
 
         async def connection():
             with self.assertRaises(IOError):
-                await uvio.net.Connect("doesnotexist.net.doesnotexist", 80)
+                await connect("doesnotexist.net.doesnotexist", 80)
 
         loop = Loop.create()
         loop.next_tick(connection())
@@ -19,7 +19,7 @@ class Test(unittest.TestCase):
 
     def test_server_connect(self):
 
-        async def handle(server, client):
+        async def handler(server, client):
 
             @client.data
             def echo(buf):
@@ -30,50 +30,51 @@ class Test(unittest.TestCase):
             def end():
                 print("on client end")
 
-            print("handle!")
-            # buf = await client.read(3)
+            client.resume()
 
-            # print("client.read buf", buf)
-
-        server = uvio.net.Server(handle)
-        loop = Loop.create()
-
-        server.listen(loop, "127.0.0.1", 8281)
-
+            print("handle! server", server)
+            print("handle! client", client)
 
         async def connection():
             print("start connection")
-            client = await uvio.net.Connect("127.0.0.1", 8281)
+            client = await connect("127.0.0.1", 8281)
+
             @client.data
             def echo(buf):
                 print("echoed:", buf)
                 client.close()
+                server.close()
 
             print("connected", client)
-            print("is_closing", client.is_closing())
+            print("is_closing", client.closing())
             print("is_active", client.is_active())
 
 
+            print("client connection", client)
             await client.write(b"this is a test")
 
             client.shutdown()
-
 
 
         def hello():
             print("hello")
             server.close()
 
-        loop.next_tick(connection())
-        loop.set_timeout(hello, 1)
+        server = uvio.net.Server(handler)
+        loop = Loop.create()
 
+        # server = await uvio.net.listen("127.0.0.1", 8281, handler)
+        server.listen(loop, "127.0.0.1", 8281)
+
+        loop.next_tick(connection())
+        # loop.set_timeout(hello, .1)
         loop.run()
 
     @unittest.skip('na')
     def test_client_connect(self):
 
         async def connection():
-            client = uvio.net.Connect("google.com", 80)
+            client = connect("google.com", 80)
 
             @client.data
             def client_data(client, data):

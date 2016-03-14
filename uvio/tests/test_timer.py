@@ -23,7 +23,7 @@ class Test(unittest.TestCase):
         timer.start(loop)
 
         self.assertTrue(timer.is_active())
-        self.assertFalse(timer.is_closing())
+        self.assertFalse(timer.closing())
         self.assertFalse(called)
 
         loop.run()
