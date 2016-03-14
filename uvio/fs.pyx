@@ -3,37 +3,74 @@ from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 
 from .uv cimport *
 from .loop cimport Loop, uv_python_callback, uv_python_strerror
-
-from .loop cimport Loop
+from .request cimport Request
+from .handle cimport Handle
 
 import os
 import inspect
-import asyncio
 
 from .futures import Future
+from .stream import Pipe
 
-cdef class FileHandle:
-    cdef uv_fs_t* uv_fs
 
-    property result:
-        def __get__(self):
-            return (<int>self.uv_fs) and self.uv_fs.result
+cdef void uv_python_fs_open_callback(uv_fs_t* handle):
+    pass
 
-    property loop:
-        def __get__(self):
-            if <int> self.uv_fs:
-                return <object> self.uv_fs.loop.data
+class FileHandle(Request):
 
-cdef void uv_python_fs_callback(uv_fs_t* handle) with gil:
+    @property
+    def uv_fileno(Request self):
+        return self.req.fs.result
 
-    callback = <object> handle.data
+    @property
+    def loop(Request self):
+        if self.req.fs.loop and self.req.fs.loop.data:
+            return <object> self.req.fs.loop.data
+
+
+cdef void uv_python_fs_callback(uv_fs_t* req) with gil:
+
+    if req.result < 0:
+        error = IOError(req.result, uv_python_strerror(req.result))
+    else:
+        error = None
+
+    callback = <object> req.data
+
     try:
-        callback.set_completed()
+        callback.set_completed(error)
     except BaseException as err:
-        loop = <object> handle.loop.data
+        loop = <object> req.loop.data
         loop.catch(err)
 
     Py_DECREF(callback)
+
+class Write(FileHandle, Future):
+    def __init__(self, fileobj, bytes data):
+        self.fileobj = fileobj
+        self.data = data
+
+    def result(self):
+        return
+
+    def _uv_start(Request self, Loop loop):
+
+        self._is_active = True
+
+        self.req.fs.data = <void*> (<PyObject*> self)
+        Py_INCREF(self)
+
+
+        cdef uv_buf_t bufs = uv_buf_init(self.data, len(self.data))
+
+        failure = uv_fs_write(
+            loop.uv_loop, &self.req.fs, self.fileobj.uv_fileno,
+            &bufs, 1, -1, uv_python_fs_callback)
+
+        if failure < 0:
+            msg = uv_strerror(failure).decode()
+            raise IOError(failure, msg)
+
 
 class Read(FileHandle, Future):
 
@@ -50,90 +87,142 @@ class Read(FileHandle, Future):
     def is_active(self):
         return self._is_active and not self._done
 
-    def _uv_start(FileHandle self, Loop loop):
+    def _uv_start(Request self, Loop loop):
 
         self._is_active = True
 
-        self.uv_fs = <uv_fs_t *> malloc(sizeof(uv_fs_t));
-
-        self.uv_fs.data = <void*> (<PyObject*> self)
+        self.req.fs.data = <void*> (<PyObject*> self)
         Py_INCREF(self)
 
         cdef uv_buf_t bufs = uv_buf_init(self.buf, self.n)
 
         uv_fs_read(
-            loop.uv_loop, self.uv_fs, self.fileno,
+            loop.uv_loop, &self.req.fs, self.fileno,
             &bufs, 1, -1, uv_python_fs_callback
         )
 
 
 
-cdef class AsyncFile(FileHandle):
+class AsyncFile(FileHandle, Future):
+    """
+    The mode can be 'r' (default), 'w', 'x' or 'a' for reading,
+    """
 
-    cpdef object filename
-    cpdef object mode
-    cpdef Loop _loop
 
-
-    def __init__(self, Loop loop, filename, mode):
+    def __init__(self, filename, mode='r'):
 
         self.filename = filename
         self.mode = mode
 
-        #O_RDONLY, O_WRONLY, or O_RDWR
+        if not isinstance(mode, str):
+            raise TypeError("{}() argument 2 must be str, not {}".format(
+                type(self).__qualname__,
+                type(mode).__qualname__
+            ))
 
-        self.uv_fs = <uv_fs_t *> malloc(sizeof(uv_fs_t))
+        if mode[0] not in ['r', 'w', 'a', 'x']:
+            raise ValueError("Must have exactly one of create/read/write/append")
 
-        self._loop = loop
+        if len(mode) > 1 and mode[1] != '+':
+            raise ValueError("Invalid mode {}".format(mode[1]))
+
+        if len(mode) > 2:
+            raise ValueError("Invalid mode {}".format(mode))
+
+    def result(self):
+        return self
+
+    def _uv_start(Request self, Loop loop):
+
+        cdef int flags = 0
+        cdef int mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
+
+
+        cdef int readwrite = len(self.mode) > 1 and self.mode[1] == '+'
+
+        if self.mode[0] == 'r':
+            flags = O_RDWR if readwrite else O_RDONLY
+        elif self.mode[0] == 'w':
+            flags = O_RDWR if readwrite else O_WRONLY
+            flags |= O_CREAT
+        elif self.mode[0] == 'a':
+            flags = O_RDWR | O_APPEND
+        elif self.mod == 'x':
+            flags = O_RDWR if readwrite else O_WRONLY
+            flags |= O_CREAT | O_EXCL
+
+
+        self.req.fs.data = <void*> (<PyObject*> self)
+        Py_INCREF(self)
 
         uv_fs_open(
             loop.uv_loop,
-            self.uv_fs,
-            filename.encode(), 0, O_RDONLY, NULL
+            &self.req.fs,
+            self.filename.encode(), flags, mode, uv_python_fs_callback
         )
 
-        if self.uv_fs.result < 0:
-            raise IOError(self.uv_fs.result, uv_python_strerror(self.uv_fs.result))
+    async def __aenter__(self):
+        return await self
 
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
+    async def __aexit__(self, *args):
         self.close()
 
-    def close(self):
+    def close(Request self):
 
         cdef uv_fs_t close_handle
 
         uv_fs_close(
-            self.uv_fs.loop,
+            self.req.fs.loop,
             &close_handle,
-            self.uv_fs.result,
+            self.req.fs.result,
             NULL
         )
 
-    def _size(self):
+    def _size(Request self):
         cdef uv_fs_t stat_handle
-        uv_fs_fstat(self.uv_fs.loop, &stat_handle, self.uv_fs.result, NULL)
+        uv_fs_fstat(self.req.fs.loop, &stat_handle, self.req.fs.result, NULL)
         if stat_handle.result < 0:
             msg = uv_strerror(stat_handle.result).decode()
             raise IOError(stat_handle.result, msg)
 
         return stat_handle.statbuf.st_size
 
-    def read(self, n=-1):
+    def read(Request self, n=-1):
 
         if n <= 0:
             n = self._size()
 
-        return Read(self.uv_fs.result, n)
+        return Read(self.req.fs.result, n)
+
+    def write(Request self, data):
 
 
-def fstat(FileHandle fd):
+        return Write(self, data)
+
+    async def stream(Request self):
+
+        cdef Handle pipe = Pipe()
+
+        await pipe
+
+        failure = uv_pipe_open(&pipe.handle.pipe, self.req.fs.result)
+
+        if failure < 0:
+            msg = uv_strerror(failure).decode()
+            raise IOError(failure, msg)
+
+        return pipe
+
+async def stream(filename, mode):
+    afile = await AsyncFile(filename, mode)
+    return await afile.stream()
+
+
+
+def fstat(Request fd):
 
     cdef uv_fs_t stat_handle
-    uv_fs_fstat(fd.uv_fs.loop, &stat_handle, fd.uv_fs.result, NULL)
+    uv_fs_fstat(fd.req.fs.loop, &stat_handle, fd.req.fs.result, NULL)
 
     if stat_handle.result < 0:
         msg = uv_strerror(stat_handle.result).decode()

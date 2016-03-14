@@ -9,8 +9,6 @@ from .request cimport Request
 from .stream import Stream
 
 import inspect
-import asyncio
-
 
 from .futures import Future
 

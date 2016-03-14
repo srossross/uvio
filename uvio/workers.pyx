@@ -10,7 +10,6 @@ from .loop cimport Loop, uv_python_callback
 from .request cimport Request
 
 import sys
-import asyncio
 import inspect
 
 from .futures import Future

@@ -29,6 +29,7 @@ def run(*func, timeout=None):
         if timeout:
             def stop_loop():
                 loop.stop()
+                raise Exception("timeout")
             timer = loop.set_timeout(stop_loop, timeout)
             # Don't wait for the timout to exit the loop
             timer.unref()

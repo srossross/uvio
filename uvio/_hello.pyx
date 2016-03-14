@@ -4,6 +4,9 @@ import inspect
 import asyncio
 
 from uv cimport *
+from .handle cimport Handle
+
+from .futures import Future
 
 
 cdef void uv_python_callback(uv_handle_t* handle):
@@ -12,9 +15,6 @@ cdef void uv_python_callback(uv_handle_t* handle):
     callback()
     Py_DECREF(callback)
 
-
-cdef class Future:
-    pass
 
 
 cdef class AsyncFile:

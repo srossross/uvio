@@ -157,6 +157,7 @@ cdef extern from "uv.h":
     int uv_fs_close(uv_loop_t*, uv_fs_t*, uv_file, uv_fs_cb)
 
     int uv_fs_read(uv_loop_t*, uv_fs_t* req, uv_file file, uv_buf_t bufs[], unsigned int, int64_t offset, uv_fs_cb cb)
+    int uv_fs_write(uv_loop_t* loop, uv_fs_t* req, uv_file file, const uv_buf_t bufs[], unsigned int nbufs, int64_t offset, uv_fs_cb cb)
 
     int uv_fs_fstat(uv_loop_t*, uv_fs_t*, uv_file, uv_fs_cb)
 
@@ -189,6 +190,15 @@ cdef extern from "uv.h":
     enum: O_RDONLY
     enum: O_WRONLY
     enum: O_RDWR
+
+    enum: S_IRWXU
+    enum: S_IRWXG
+    enum: S_IRWXO
+
+    enum: S_IRUSR
+    enum: S_IWUSR
+    enum: S_IRGRP
+    enum: S_IROTH
 
 
     ctypedef void (*uv_alloc_cb)(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
@@ -308,7 +318,7 @@ cdef extern from "uv.h":
       uv_work_t work
 
       # XX(UDP_SEND, udp_send)
-      # XX(FS, fs)
+      uv_fs_t fs
       # XX(WORK, work)
       # XX(GETADDRINFO, getaddrinfo)
       # XX(GETNAMEINFO, getnameinfo)
