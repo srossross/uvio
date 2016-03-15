@@ -18,6 +18,9 @@ cdef void uv_python_fs_open_callback(uv_fs_t* handle):
 
 class FileHandle(Request):
 
+    def __del__(Request self):
+        uv_fs_req_cleanup(&self.req.fs)
+
     @property
     def uv_fileno(Request self):
         return self.req.fs.result
@@ -82,7 +85,11 @@ class Read(FileHandle, Future):
         self._is_active = False
 
     def result(self):
-        return self.buf.decode()
+        print("uv_fileno", self.uv_fileno)
+        if self.uv_fileno > 0:
+            return self.buf[:self.uv_fileno]
+        else:
+            return b''
 
     def is_active(self):
         return self._is_active and not self._done
@@ -215,7 +222,9 @@ class AsyncFile(FileHandle, Future):
 
 async def stream(filename, mode):
     afile = await AsyncFile(filename, mode)
-    return await afile.stream()
+    stream = await afile.stream()
+    stream.resume()
+    return stream
 
 
 

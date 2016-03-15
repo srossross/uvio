@@ -16,11 +16,12 @@ class Test(unittest.TestCase):
 
         async with uvopen(test_data, "r") as fd:
             data = await fd.read()
-            self.assertEqual(data, "Hello World")
+            self.assertEqual(data, b"Hello World")
+            self.assertEqual(b"", await fd.read(1))
 
         async with uvopen(test_data, "r") as fd:
             data = await fd.read(1)
-            self.assertEqual(data, "H")
+            self.assertEqual(data, b"H")
 
 
     @run(timeout=1)
@@ -29,7 +30,6 @@ class Test(unittest.TestCase):
 
         async with uvopen('test_write.txt', 'w') as fd:
             n = await fd.write(b"Hello World")
-            pass
 
 
         with open('test_write.txt', 'r') as fd:
@@ -37,22 +37,26 @@ class Test(unittest.TestCase):
             self.assertEqual(data, "Hello World")
 
 
-    @run(timeout=1)
+    @run(timeout=None)
     async def test_stream(self):
 
-        fd1 = await uvio.fs.stream(test_data, 'r')
+        fd1 = await uvio.fs.stream('append.txt', 'r')
         # fd2 = await uvio.fs.stream('test_stream.txt', 'w')
 
-        fd1.resume()
+
         @fd1.data
         def data(buf):
-            print('got',buf)
+            print('got', buf)
+            #fd1.close()
             # fd2.write(buf)
+
         @fd1.end
         def end():
             print('end')
             # fd2.close()
             fd1.close()
+
+        fd1.resume()
 
 
     @run(timeout=1)

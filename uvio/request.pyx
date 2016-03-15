@@ -4,6 +4,7 @@ cdef class Request:
     def __cinit__(self):
         self.req.req.data = NULL
 
+
     def is_active(self):
         return self.req.req.data != NULL
 

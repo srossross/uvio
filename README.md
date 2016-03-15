@@ -112,9 +112,9 @@ async def callback():
     try:
         value = await worker(blocking, 'Fail', "Tester")
     except TypeError:
-        print("caught exception in a thread! cool")
+        print("caught exception in a thread! cool.")
 
-    value = await worker(blocking, 'Fail', "Tester")
+    value = await worker(blocking, 1, "Tester")
 
 ```
 

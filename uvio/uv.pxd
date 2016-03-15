@@ -24,7 +24,7 @@ cdef extern from "uv.h":
         void* data
         uv_req_type type
 
-
+    void uv_fs_req_cleanup(uv_fs_t* req)
 
     ctypedef struct uv_handle_t:
       void* data
