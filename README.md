@@ -21,13 +21,13 @@ python setup.py install
 from uvio import run
 from uvio.net import connect, listen
 
-async def echo_server(server, client):
+async def echo_server(server, socket):
 
-    @client.data
+    @socket.data
     def echo(buf):
-        client.write(b"echo: " + buf)
+        socket.write(b"echo: " + buf)
 
-    client.resume()
+    socket.resume()
 
 
 @run(timout=1)
