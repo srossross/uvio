@@ -16,6 +16,7 @@ class Test(unittest.TestCase):
             nonlocal called
             called = True
 
+        print("idle")
         idle = Idle(callback)
 
         self.assertFalse(idle.is_active())
@@ -26,6 +27,7 @@ class Test(unittest.TestCase):
         self.assertFalse(idle.closing())
         self.assertFalse(called)
 
+        print("run")
         loop.run()
 
         self.assertTrue(called)

@@ -291,6 +291,13 @@ cdef extern from "uv.h":
     int uv_pipe_bind(uv_pipe_t* handle, const char* name);
     void uv_pipe_connect(uv_connect_t* req, uv_pipe_t* handle, const char* name, uv_connect_cb cb)
 
+    int uv_pipe_getsockname(const uv_pipe_t* handle,
+                                    char* buffer,
+                                    size_t* size);
+    int uv_pipe_getpeername(const uv_pipe_t* handle,
+                            char* buffer,
+                            size_t* size);
+
     union uv_any_handle:
     # XX(ASYNC, async)
     # XX(CHECK, check)

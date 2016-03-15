@@ -16,16 +16,19 @@ class Test(unittest.TestCase):
     @run(timeout=1)
     async def test_connect_bind(self):
 
-        print("how")
-        pipe = await Pipe()
-        print("pipe")
-        pipe.bind("local")
+        pipe1 = await Pipe()
+        pipe1.bind("./local.sock")
 
-        pipe.close()
+        pipe2 = await Pipe()
+        await pipe2.connect("./local.sock")
 
-        print("got here", pipe)
+        print("pipe1", pipe1)
+        print("pipe2", pipe2)
+        await pipe1.write(b'hello')
+        print(await pipe.read(5))
 
-        # pipe2 = await Pipe.connect("local")
+        pipe1.close()
+        pipe2.close()
 
         # print("pipe2", pipe2)
 

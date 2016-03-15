@@ -5,9 +5,10 @@ from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 from .uv cimport *
 
 from .request cimport Request
-from .loop cimport Loop
+from .loop cimport Loop, listen_callback
 from .handle cimport Handle
 
+import io
 import inspect
 import weakref
 from .futures import Future
@@ -31,7 +32,6 @@ cdef void uv_python_pipe_connect_cb(uv_connect_t *req, int status):
     req.data = NULL
 
 cdef void uv_python_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) with gil:
-    print("uv_python_alloc_cb", suggested_size)
 
     try:
         _buffer = <object> PyBytes_FromStringAndSize(NULL, suggested_size)
@@ -156,21 +156,26 @@ class StreamWrite(Request, Future):
         self.req.req.data = <void*> (<PyObject*> self)
         Py_INCREF(self)
 
-class StreamReader(Future):
+class BufferedStreamReader(Future):
     def __init__(self, stream, size, readline=False):
         self._stream = weakref.ref(stream)
         self.size = size
         self.readline = readline
+        self._out_buffers = []
 
     @property
     def stream(self):
         return self._stream()
 
     def _uv_start(self, loop):
-        pass
+        self.proces()
 
     def result(self):
         pass
+
+    def process(self):
+        self.size
+
 
 class Stream(Handle):
 
@@ -178,7 +183,8 @@ class Stream(Handle):
         self._paused = False
         self._data_listeners = []
         self._end_listeners = []
-        self._buffers = []
+        self._read_buffers = []
+        self._eof = False
         self._reader = None
 
     def __repr__(Handle self):
@@ -191,17 +197,19 @@ class Stream(Handle):
             <int> <PyObject*> <object> self
         )
 
+    def unshift(self, buf):
+        self._read_buffers.insert(0, buf)
+
     def read(self, n):
         if self._reader is None:
-            self._reader = StreamRead(self, n)
+            self._reader = BufferedStreamReader(self, n)
             return self._reader
 
         raise Exception("already reading")
 
-        return StreamRead(self, n)
 
     def readline(self, size=None):
-        return StreamRead(self, size, readline=True)
+        return BufferedStreamReader(self, size, readline=True)
 
     def data(self, coro_func):
 
@@ -213,8 +221,8 @@ class Stream(Handle):
 
     def notify_data_listeners(self, buf):
         if self._reader:
-            self._buffers.append(buf)
-            self._reader.set_completed()
+            self._read_buffers.append(buf)
+            self._reader.process()
 
         for listener in self._data_listeners:
             listener(buf)
@@ -229,10 +237,10 @@ class Stream(Handle):
 
     def notify_end_listeners(self):
 
-        if self._reader:
-            self._buffers.append(None)
-            self._reader.set_completed()
+        self._eof = True
 
+        if self._reader:
+            self._reader.process()
 
         for listener in self._end_listeners:
             listener()
@@ -298,6 +306,16 @@ class Stream(Handle):
 
         return self._shutdown
 
+    def listen(Handle self, backlog=511):
+
+        failure = uv_listen(&self.handle.stream, backlog, listen_callback);
+
+        if failure:
+            msg = "Listen error {}".format(uv_strerror(failure).decode())
+            raise IOError(failure,  msg)
+
+        self.loop._add_handle(self)
+
 
     def pipe(self, stream, end=True):
 
@@ -310,6 +328,7 @@ class Stream(Handle):
         return stream
 
 
+
 class PipeConnect(Request, Future):
     def __init__(self, pipe, name):
         self._result = pipe
@@ -317,12 +336,19 @@ class PipeConnect(Request, Future):
 
     def _uv_start(Request self, loop):
 
-        uv_pipe_connect(
+        failure = uv_pipe_connect(
             &self.req.connect,
             &(<Handle> self._result).handle.pipe,
             self.name.encode(),
             uv_python_pipe_connect_cb
         )
+        if failure:
+            msg = "Error connecting pipe '{}': {}".format(
+                self.name,
+                uv_strerror(failure).decode()
+            )
+            raise IOError(failure,  msg)
+
         self.req.req.data = <void*> <object> self
         Py_INCREF(self)
 
@@ -348,15 +374,28 @@ class Pipe(Stream, Future):
             msg = "Error binding pipe '{}': {}".format(name, uv_strerror(failure).decode())
             raise IOError(failure,  msg)
 
-    @classmethod
+    # @classmethod
     async def connect(cls, name, ipc=False):
-        raise NotImplementedError("not yet")
-        pipe = await cls(ipc=ipc)
-        await PipeConnect(cls, name)
-        return pipe
+        # raise NotImplementedError("not yet")
+        # pipe = await cls(ipc=ipc)
+        return PipeConnect(cls, name)
+        # return pipe
 
+    def sockname(Handle self):
+        cdef size_t size = 1024
+        _buffer = <object> PyBytes_FromStringAndSize(NULL, size)
 
+        uv_pipe_getsockname(&self.handle.pipe, _buffer, &size);
 
+        return _buffer[:size-1].decode()
+
+    # def peername(Handle self):
+    #     cdef size_t size = 1024
+    #     _buffer = <object> PyBytes_FromStringAndSize(NULL, size)
+
+    #     uv_pipe_getpeername(&self.handle.pipe, _buffer, &size);
+
+    #     return _buffer[:size]
 
 
 

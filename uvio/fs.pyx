@@ -13,9 +13,6 @@ from .futures import Future
 from .stream import Pipe
 
 
-cdef void uv_python_fs_open_callback(uv_fs_t* handle):
-    pass
-
 class FileHandle(Request):
 
     def __del__(Request self):

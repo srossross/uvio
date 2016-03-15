@@ -2,7 +2,7 @@ from libc.stdlib cimport malloc, free
 from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 
 from .uv cimport *
-from .loop cimport Loop, uv_python_callback
+from .loop cimport Loop, idle_callback
 from .handle cimport Handle
 
 from .loop cimport Loop
@@ -30,10 +30,10 @@ class Idle(Handle, Future):
 
         uv_idle_init(loop.uv_loop, &self.handle.idle);
 
-        self.handle.handle.data = <void*> (<PyObject*> self)
-        Py_INCREF(self)
+        loop._add_handle(self)
 
-        uv_idle_start(&self.handle.idle, <uv_idle_cb> uv_python_callback);
+        uv_idle_start(&self.handle.idle, idle_callback)
+
 
     def stop(Handle self):
         uv_idle_stop(&self.handle.idle)
@@ -42,7 +42,7 @@ class Idle(Handle, Future):
         if self.once:
             self.stop()
         else:
-            Py_INCREF(<object> self)
+            self.loop._handles.add(self)
 
         if (self._callback):
             self._callback()

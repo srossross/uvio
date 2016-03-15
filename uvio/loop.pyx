@@ -4,11 +4,13 @@ from libc.stdio cimport printf
 
 from .uv cimport *
 
+from .handle cimport Handle
 import sys
 
 from .idle import Idle
 from .timer import Timer
 from .futures import Future
+
 
 cdef void uv_python_handle_exceptions(uv_idle_t* handle) with gil:
     loop = <object> handle.loop.data
@@ -18,6 +20,18 @@ cdef void uv_python_handle_exceptions(uv_idle_t* handle) with gil:
 cdef object uv_python_strerror(int code):
     msg = <char*> uv_strerror(code)
     return msg.decode()
+
+
+cdef void idle_callback(uv_idle_t* handle) with gil:
+    idle = <object> handle.data
+    loop = <object> handle.loop.data
+    loop.idle_callback(idle)
+
+cdef void listen_callback(uv_stream_t* handle, int status) with gil:
+    stream = <object> handle.data
+    loop = <object> handle.loop.data
+    loop.listen_callback(stream, status)
+
 
 cdef void python_walk_cb(uv_handle_t* uv_handle, void* arg):
     callback = <object> arg
@@ -47,6 +61,32 @@ cdef class Loop:
     def __init__(self):
         self._exceptions = []
         self._exception_handler = None
+        self._handles = set()
+        self._reqs = set()
+
+    def _add_handle(self, Handle handle):
+        handle.handle.handle.data = <void*> handle
+        self._handles.add(handle)
+
+    def idle_callback(self, idle):
+        "Called after idle.start"
+        self._handles.remove(idle)
+        try:
+            idle.set_completed()
+        except BaseException as err:
+            self.catch(err)
+
+    def listen_callback(self, stream, status):
+        '''Callback called when a stream server has received an incoming connection.
+        The user can accept the connection by calling stream.accept().
+        '''
+        if status < 0:
+             err = IOError(status, "Cound not create new connection: {}".format(uv_strerror(status).decode()))
+             self.catch(err)
+             return
+
+        stream.accept()
+
 
     def next_tick(self, callback):
         idle = Idle(callback)

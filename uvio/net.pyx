@@ -49,18 +49,22 @@ cdef void uv_python_on_new_connection(uv_stream_t* stream, int status) with gil:
 
 
 class TCP(Stream):
-    pass
+    def __init__(Handle self, Loop loop):
+
+        Stream.__init__(self)
+        uv_tcp_init(loop.uv_loop, &client.handle.tcp)
+
+
 
 class Server(TCP):
 
     def __init__(self, handler):
         self.handler = handler
+        super().__init__()
 
     def accept(Handle self):
 
-        cdef Handle client = Stream()
-
-        uv_tcp_init(self.handle.handle.loop, &client.handle.tcp)
+        cdef Handle client = TCP(self.loop)
 
         failure = uv_accept(&self.handle.stream, &client.handle.stream)
 
