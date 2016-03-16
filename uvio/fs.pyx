@@ -10,7 +10,7 @@ import os
 import inspect
 
 from .futures import Future
-from .stream import Pipe
+from .pipes import Pipe
 
 
 class FileHandle(Request):
@@ -205,9 +205,7 @@ class AsyncFile(FileHandle, Future):
 
     async def stream(Request self):
 
-        cdef Handle pipe = Pipe()
-
-        await pipe
+        cdef Handle pipe = Pipe(self.loop)
 
         failure = uv_pipe_open(&pipe.handle.pipe, self.req.fs.result)
 

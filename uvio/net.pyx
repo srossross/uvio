@@ -7,64 +7,49 @@ from .handle cimport Handle
 from .request cimport Request
 
 from .stream import Stream
-
+from .loop import get_current_loop
 import inspect
 
 from .futures import Future
 
-cdef void uv_python_on_connect(uv_connect_t* req, int status) with gil:
-
-    if status < 0:
-        network_error = IOError(status, "Network Connection error: {}".format(uv_strerror(status).decode()))
-    else:
-        network_error = None
-
-    connect = <object> req.data
-
-
-    try:
-        connect.set_completed(network_error)
-    except BaseException as err:
-
-        loop = <object> req.handle.loop.data
-        loop.catch(err)
-
-    Py_DECREF(connect)
-
-
-cdef void uv_python_on_new_connection(uv_stream_t* stream, int status) with gil:
-
-    if status < 0:
-        network_error = IOError(status, "Cound not create new connection: {}".format(uv_strerror(status).decode()))
-    else:
-        network_error = None
-
-    server = <object> stream.data
-
-    try:
-        server.accept()
-    except BaseException as err:
-        loop = <object> stream.loop.data
-        loop.catch(err)
+cdef void connect_callback(uv_connect_t* req, int status) with gil:
+    request = <object> req.data
+    loop = <object> req.handle.loop.data
+    loop.connect_callback(request, status)
 
 
 class TCP(Stream):
+
     def __init__(Handle self, Loop loop):
 
         Stream.__init__(self)
-        uv_tcp_init(loop.uv_loop, &client.handle.tcp)
+        uv_tcp_init(loop.uv_loop, &self.handle.tcp)
 
+    def bind(Handle self, host, port):
 
+        cdef Loop loop = self.loop
+
+        cdef sockaddr_in addr
+        uv_ip4_addr(host.encode(), port, &addr);
+
+        failure = uv_tcp_bind(&self.handle.tcp, <const sockaddr*> &addr, 0);
+
+        if failure:
+            msg = "Bind error: {}".format(uv_strerror(failure).decode())
+            raise IOError(failure,  msg)
 
 class Server(TCP):
 
-    def __init__(self, handler):
-        self.handler = handler
-        super().__init__()
+    def __init__(self, loop, handler):
+        self._handler = handler
+        TCP.__init__(self, loop)
+
+    def get_client(Handle self):
+        return TCP(self.loop)
 
     def accept(Handle self):
 
-        cdef Handle client = TCP(self.loop)
+        cdef Handle client = self.get_client()
 
         failure = uv_accept(&self.handle.stream, &client.handle.stream)
 
@@ -73,57 +58,42 @@ class Server(TCP):
             msg = "Accept error {}".format(uv_strerror(failure).decode())
             raise IOError(failure,  msg)
         else:
-            self.loop.next_tick(self.handler(self, client))
-
-    def listen(Handle self, Loop loop, host, port, backlog=511):
+            self.loop.next_tick(self._handler(self, client))
 
 
-        uv_tcp_init(loop.uv_loop, &self.handle.tcp);
-
-        cdef sockaddr_in addr
-        uv_ip4_addr(host.encode(), port, &addr);
-
-        uv_tcp_bind(&self.handle.tcp, <const sockaddr*> &addr, 0);
-
-        failure = uv_listen(&self.handle.stream, backlog, uv_python_on_new_connection);
-
-        if failure:
-            msg = "Listen error {}".format(uv_strerror(failure).decode())
-            raise IOError(failure,  msg)
-
-        self.handle.handle.data = <void*> (<PyObject*> self)
-        Py_INCREF(self)
+async def listen(handler, host, port, backlog=511):
+    server = Server(await get_current_loop(), handler)
+    server.bind(host, port)
+    server.listen(backlog)
+    return server
 
 
-cdef class _Connect(Request):
-    property loop:
-        def __get__(self):
-            return <object> self.req.connect.handle.loop.data
+class connect(Request, Future):
 
-
-class connect(_Connect, Future):
 
     def __init__(self, host, port):
         self.host = host
         self.port = port
 
-    def _uv_start(_Connect self, Loop loop):
+    @property
+    def loop(Request self):
+        return <object> self.req.connect.handle.loop.data
 
-        cdef Handle client = TCP()
+    def _uv_start(Request self, Loop loop):
 
-        uv_tcp_init(loop.uv_loop, &client.handle.tcp);
+        cdef Handle client = TCP(loop)
 
         cdef sockaddr_in addr
         uv_ip4_addr(self.host.encode(), self.port, &addr);
 
         self.req.req.data = <void*> (<PyObject*> self)
-        Py_INCREF(self)
+        loop._add_req(self)
 
         failure = uv_tcp_connect(
             &self.req.connect,
             &client.handle.tcp,
             <const sockaddr*> &addr,
-            uv_python_on_connect
+            connect_callback
         )
 
         self._result = client

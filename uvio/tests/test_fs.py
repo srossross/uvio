@@ -59,6 +59,29 @@ class Test(unittest.TestCase):
         fd1.resume()
 
 
+    @run(timeout=None)
+    async def test_stream_read(self):
+
+        fd1 = await uvio.fs.stream('append.txt', 'r')
+        print("fd1", fd1)
+        # fd2 = await uvio.fs.stream('test_stream.txt', 'w')
+
+
+        # @fd1.data
+        # def data(buf):
+        #     print('got', buf)
+        #     #fd1.close()
+        #     # fd2.write(buf)
+
+        # @fd1.end
+        # def end():
+        #     print('end')
+        #     # fd2.close()
+        #     fd1.close()
+
+        # fd1.resume()
+
+
     @run(timeout=1)
     async def test_fstat(self):
 

@@ -8,29 +8,39 @@ import uvio
 
 from uvio import run
 from uvio.loop import Loop
-from uvio.stream import Pipe
+from uvio.pipes import Pipe, connect, listen
 
 
 class Test(unittest.TestCase):
 
-    @run(timeout=1)
-    async def test_connect_bind(self):
+    @uvio.run(timeout=1)
+    async def test_pipe_connect(self):
 
-        pipe1 = await Pipe()
-        pipe1.bind("./local.sock")
+        async def handler( client):
 
-        pipe2 = await Pipe()
-        await pipe2.connect("./local.sock")
+            @client.data
+            def echo(buf):
+                client.write(b"echo: " + buf)
 
-        print("pipe1", pipe1)
-        print("pipe2", pipe2)
-        await pipe1.write(b'hello')
-        print(await pipe.read(5))
+            client.resume()
 
-        pipe1.close()
-        pipe2.close()
 
-        # print("pipe2", pipe2)
+        async def connection():
+            client = await uvio.pipes.connect("x.sock")
+
+            @client.data
+            def echo(buf):
+                client.close()
+                server.close()
+
+            await client.write(b"this is a test")
+
+            client.shutdown()
+
+        server = await uvio.pipes.listen(handler, "x.sock")
+        await connection()
+
+
 
 if __name__ == '__main__':
     unittest.main()

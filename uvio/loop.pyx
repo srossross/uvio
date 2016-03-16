@@ -5,6 +5,7 @@ from libc.stdio cimport printf
 from .uv cimport *
 
 from .handle cimport Handle
+from .request cimport Request
 import sys
 
 from .idle import Idle
@@ -68,24 +69,47 @@ cdef class Loop:
         handle.handle.handle.data = <void*> handle
         self._handles.add(handle)
 
+    def _add_req(self, Request req):
+        req.req.req.data = <void*> req
+        self._reqs.add(req)
+
     def idle_callback(self, idle):
         "Called after idle.start"
-        self._handles.remove(idle)
+        self._handles.discard(idle)
+
         try:
             idle.set_completed()
         except BaseException as err:
             self.catch(err)
 
-    def listen_callback(self, stream, status):
-        '''Callback called when a stream server has received an incoming connection.
-        The user can accept the connection by calling stream.accept().
-        '''
-        if status < 0:
-             err = IOError(status, "Cound not create new connection: {}".format(uv_strerror(status).decode()))
-             self.catch(err)
-             return
+    def new_connection_callback(self, stream, status):
 
-        stream.accept()
+        # Don't have to remove handle stream from _handles
+
+        if status < 0:
+            err = IOError(status, "Cound not create new connection: {}".format(uv_strerror(status).decode()))
+            self.catch(err)
+            return
+
+        try:
+            stream.accept()
+        except BaseException as err:
+            self.catch(err)
+
+    def connect_callback(self, request, status):
+
+        self._reqs.discard(request)
+
+        if status < 0:
+            msg = uv_strerror(status).decode()
+            err = IOError(status, "Network Connection error: {}".format(msg))
+        else:
+            err = None
+
+        try:
+            request.set_completed(err)
+        except BaseException as err:
+            self.catch(err)
 
 
     def next_tick(self, callback):
@@ -217,6 +241,8 @@ class get_current_loop(Future):
     _is_active = False
 
     def _uv_start(self, loop):
+
+        self._is_active = True
         self._result = loop
         if self._coro:
             loop.next_tick(self._coro)
@@ -224,7 +250,7 @@ class get_current_loop(Future):
     def is_active(self):
         return self._is_active
 
-    def _uv_start(self, loop):
-        self._is_active = True
-        self.loop = loop
+
+
+
 

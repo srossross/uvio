@@ -17,7 +17,8 @@ class Test(unittest.TestCase):
         loop.next_tick(connection())
         loop.run()
 
-    def test_server_connect(self):
+    @uvio.run(timeout=1)
+    async def test_server_connect(self):
 
         async def handler(server, client):
 
@@ -56,19 +57,9 @@ class Test(unittest.TestCase):
             client.shutdown()
 
 
-        def hello():
-            print("hello")
-            server.close()
-
-        server = uvio.net.Server(handler)
-        loop = Loop.create()
-
-        # server = await uvio.net.listen("127.0.0.1", 8281, handler)
-        server.listen(loop, "127.0.0.1", 8281)
-
-        loop.next_tick(connection())
-        # loop.set_timeout(hello, .1)
-        loop.run()
+        server = await uvio.net.listen(handler, "127.0.0.1", 8281)
+        print("Server", server)
+        await connection()
 
     @unittest.skip('na')
     def test_client_connect(self):

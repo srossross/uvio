@@ -15,10 +15,12 @@ class Future:
 
         if not self._done:
             yield self
+
         return self.result()
 
 
     def start(self, loop, coro=None):
+
 
         if coro and self._coro:
             raise Exception("coroutine continuuation already set")

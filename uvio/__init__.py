@@ -22,7 +22,7 @@ def run(*func, timeout=None):
         coro = func(self)
 
         if not iscoroutine(coro):
-            raise Exception("{} is not a coroutine".format(coro))
+            raise Exception("{} is not a coroutine (returned from {})".format(coro, func))
 
         loop.next_tick(coro)
 
@@ -37,7 +37,9 @@ def run(*func, timeout=None):
         loop.run()
         loop.close()
 
-        assert coro.cr_await is None, 'coroutine {} should not be running'.format(coro)
+        if coro.cr_await is not None:
+            coro.throw(Exception('coroutine {} should not be running at the end of the loop'.format(coro)))
+
 
 
     return inner
