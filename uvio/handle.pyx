@@ -5,6 +5,9 @@ cdef class Handle:
         def __get__(self):
             if <int> self.handle.handle.loop:
                 return <object> self.handle.handle.loop.data
+        def __set__(self, value):
+            loop = <object> self.handle.handle.loop.data
+            assert loop is  value
 
     property _cpointer:
         def __get__(self):

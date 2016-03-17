@@ -1,9 +1,22 @@
 
 class Future:
-    _coro = None
+    _coroutine = None
     _done = False
     _result = None
-    _exec_info = (None, None, None)
+
+    @property
+    def coro(self):
+        return self._coroutine
+
+    @coro.setter
+    def coro(self, value):
+        self._coroutine = value
+
+    @coro.deleter
+    def coro(self):
+        self._coroutine = None
+
+
 
     def result(self):
         return self._result
@@ -11,52 +24,33 @@ class Future:
     def done(self):
         return self._done
 
+    def start(self):
+        self.__uv_start__()
+
+    def __uv_start__(self):
+        pass
+
+    def __uv_complete__(self):
+        return None
+
     def __await__(self):
 
-        if not self._done:
-            yield self
+        if self.done():
+            raise Exception("future has already be awaited")
 
-        return self.result()
+        self.loop.active_handles.add(self)
 
+        self.__uv_start__()
+        print("__iter__.started")
+        args = yield self
+        print("__iter__: yielded args", args)
+        result = self.__uv_complete__(*args)
 
-    def start(self, loop, coro=None):
+        self._done = True
 
+        del self.coro
+        print("__iter__: returns", result)
 
-        if coro and self._coro:
-            raise Exception("coroutine continuuation already set")
-        elif coro:
-            self._coro = coro
+        return result
 
-        if self.is_active():
-            return self
-
-
-        self._uv_start(loop)
-
-
-        return self
-
-
-
-    def set_completed(self, error=None):
-
-        if error:
-            self._exec_info = (type(error), error, None)
-
-        self._done  = True
-        if self._coro is None:
-            return
-
-        try:
-            if self._exec_info[1]:
-                value = self._coro.throw(*self._exec_info)
-            else:
-                value = self._coro.send(self.result())
-        except StopIteration:
-            return
-
-        if isinstance(value, Future):
-            value.start(self.loop, self._coro)
-        else:
-            raise Exception("expected value to be a future (got: {})".format(value))
 

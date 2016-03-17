@@ -61,7 +61,7 @@ class worker(Request, Future):
         except Exception as err:
             self._exec_info = sys.exc_info()
 
-    def _uv_start(Request self, Loop loop):
+    def __uv_start__(Request self, Loop loop):
 
         self._set_active()
 

@@ -211,7 +211,7 @@ class ReturnCode(Future):
     def is_active(self):
         return self._is_active
 
-    def _uv_start(self, loop):
+    def __uv_start__(self, loop):
         self._is_active = True
         self.loop = loop
 
@@ -242,7 +242,7 @@ class Popen(Handle, Future):
             msg = <char*> uv_strerror(failure)
             raise RuntimeError(failure, "Could not kill process: {}".format(msg.decode()))
 
-    def _uv_start(Handle self, Loop loop):
+    def __uv_start__(Handle self, Loop loop):
 
         self._returncode = ReturnCode(self)
 

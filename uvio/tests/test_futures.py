@@ -9,7 +9,7 @@ class F(Future):
     def is_active(self):
         return self._is_active
 
-    def _uv_start(self, loop):
+    def __uv_start__(self, loop):
         self._result = 'ok'
         self._is_active = True
         if self._coro:

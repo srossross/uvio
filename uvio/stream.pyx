@@ -102,7 +102,7 @@ class StreamShutdown(Request, Future):
     def loop(Request self):
         return <object> self.req.write.handle.loop.data
 
-    def _uv_start(Request self, Loop loop):
+    def __uv_start__(Request self, Loop loop):
 
         uv_shutdown(
             &self.req.shutdown,
@@ -125,7 +125,7 @@ class StreamWrite(Request, Future):
     def loop(Request self):
         return <object> self.req.write.handle.loop.data
 
-    def _uv_start(Request self, Loop loop):
+    def __uv_start__(Request self, Loop loop):
 
         cdef uv_buf_t buf = uv_buf_init(self.buf, len(self.buf))
 
@@ -158,7 +158,7 @@ class BufferedStreamReader(Future):
     def is_active(self):
         return self._is_active
 
-    def _uv_start(self, loop):
+    def __uv_start__(self, loop):
         print("uv_start", loop)
         self._is_active = True
         self.loop = loop

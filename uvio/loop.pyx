@@ -6,16 +6,17 @@ from .uv cimport *
 
 from .handle cimport Handle
 from .request cimport Request
+
 import sys
+import inspect
 
 from .idle import Idle
-from .timer import Timer
 from .futures import Future
 
 
-cdef void uv_python_handle_exceptions(uv_idle_t* handle) with gil:
+cdef void idle_run_callback(uv_idle_t* handle) with gil:
     loop = <object> handle.loop.data
-    loop.handle_exceptions()
+    loop.tick()
 
 
 cdef object uv_python_strerror(int code):
@@ -56,71 +57,81 @@ cdef void uv_python_callback(uv_handle_t* handle) with gil:
 
     Py_DECREF(callback)
 
+async def wrap_function(callback):
+    return callback()
 
 cdef class Loop:
 
     def __init__(self):
         self._exceptions = []
         self._exception_handler = None
-        self._handles = set()
+        self._active_handles = set()
+        self._pending_coroutines = set()
         self._reqs = set()
 
-    def _add_handle(self, Handle handle):
-        handle.handle.handle.data = <void*> handle
-        self._handles.add(handle)
+    property active_handles:
+        def __get__(self):
+            return self._active_handles
 
-    def _add_req(self, Request req):
-        req.req.req.data = <void*> req
-        self._reqs.add(req)
+    property pending_coroutines:
+        def __get__(self):
+            return self._pending_coroutines
 
-    def idle_callback(self, idle):
-        "Called after idle.start"
-        self._handles.discard(idle)
 
-        try:
-            idle.set_completed()
-        except BaseException as err:
-            self.catch(err)
 
-    def new_connection_callback(self, stream, status):
 
-        # Don't have to remove handle stream from _handles
+    # def idle_callback(self, idle):
+    #     "Called after idle.start"
+    #     self._handles.discard(idle)
 
-        if status < 0:
-            err = IOError(status, "Cound not create new connection: {}".format(uv_strerror(status).decode()))
-            self.catch(err)
-            return
+    #     try:
+    #         idle.set_completed()
+    #     except BaseException as err:
+    #         self.catch(err)
 
-        try:
-            stream.accept()
-        except BaseException as err:
-            self.catch(err)
+    # def new_connection_callback(self, stream, status):
 
-    def connect_callback(self, request, status):
+    #     # Don't have to remove handle stream from _handles
 
-        self._reqs.discard(request)
+    #     if status < 0:
+    #         err = IOError(status, "Cound not create new connection: {}".format(uv_strerror(status).decode()))
+    #         self.catch(err)
+    #         return
 
-        if status < 0:
-            msg = uv_strerror(status).decode()
-            err = IOError(status, "Network Connection error: {}".format(msg))
-        else:
-            err = None
+    #     try:
+    #         stream.accept()
+    #     except BaseException as err:
+    #         self.catch(err)
 
-        try:
-            request.set_completed(err)
-        except BaseException as err:
-            self.catch(err)
+    # def connect_callback(self, request, status):
+
+    #     self._reqs.discard(request)
+
+    #     if status < 0:
+    #         msg = uv_strerror(status).decode()
+    #         err = IOError(status, "Network Connection error: {}".format(msg))
+    #     else:
+    #         err = None
+
+    #     try:
+    #         request.set_completed(err)
+    #     except BaseException as err:
+    #         self.catch(err)
 
 
     def next_tick(self, callback):
-        idle = Idle(callback)
-        idle.start(self)
-        return idle
+        if inspect.iscoroutine(callback):
+            self.pending_coroutines.add(callback)
+        elif inspect.iscoroutinefunction(callback):
+            raise Exception("Did you mean ot create a coroutine ? got a coroutine function")
+        else:
+            self.pending_coroutines.add(wrap_function(callback))
 
-    def set_timeout(self, callback, timeout, repeat=False):
-        py_timer = Timer(callback, timeout, repeat)
-        py_timer.start(self)
-        return py_timer
+    # def set_timeout(self, callback, timeout, repeat=False):
+    #     py_timer = Timer(self, callback, timeout, repeat)
+    #     py_timer.start()
+    #     self.active_handles.add(py_timer)
+    #     return py_timer
 
     def __repr__(self):
         return "<uvio.Loop alive={}>".format(self.alive())
@@ -141,13 +152,9 @@ cdef class Loop:
         #clear exceptions
         self._exceptions[:] = []
 
-        cdef uv_idle_t* uv_handle = <uv_idle_t *> malloc(sizeof(uv_idle_t));
-        uv_idle_init(self.uv_loop, uv_handle);
+        uv_idle_init(self.uv_loop, &self.uv_tick);
 
-        # Don't block the loop from exiting
-        uv_unref(<uv_handle_t*> uv_handle)
-
-        uv_idle_start(uv_handle, uv_python_handle_exceptions);
+        uv_idle_start(&self.uv_tick, idle_run_callback);
 
         with nogil:
             uv_run(self.uv_loop, UV_RUN_DEFAULT)
@@ -187,6 +194,75 @@ cdef class Loop:
 
         def __set__(self, value):
             self._exception_handler = value
+
+    def tick(self):
+
+        self.handle_exceptions()
+
+        if not self._pending_coroutines:
+            # Don't block the loop from exiting
+            uv_unref(<uv_handle_t*> &self.uv_tick)
+            return
+
+        print("pending_coroutines")
+        coroutine = self._pending_coroutines.pop()
+        print("coroutine", coroutine)
+
+        try:
+            continuation = coroutine.send(None)
+
+
+        except StopIteration:
+            print("stop")
+        except BaseException as err:
+            self.catch(err)
+        else:
+            print("continuation", continuation)
+            continuation.loop = self
+            continuation.coro = coroutine
+            self.step(continuation)
+
+    def step(self, continuation, *args):
+
+        coro = continuation.coro
+
+        if coro is None:
+            # This is not done
+            return
+
+        print("continuation", continuation)
+        print("coro", coro)
+
+        del continuation.coro
+
+        while 1:
+
+            try:
+
+                if coro.cr_await is None:
+                    assert not args
+                    args = None
+
+                continuation = coro.send(args)
+
+
+            except StopIteration:
+                self.active_handles.discard(self)
+                return
+
+            except BaseException as err:
+                self.catch(err)
+                return
+
+            args = None
+            continuation.loop = self
+            continuation.coro = coro
+
+            if not continuation.done():
+                return
+
+
+
 
     def handle_exceptions(self):
 
@@ -237,20 +313,15 @@ cdef class Loop:
 
         return loop
 
-class get_current_loop(Future):
-    _is_active = False
+class get_current_loop:
+    _done = False
 
-    def _uv_start(self, loop):
+    def done(self):
+        return self._done
 
-        self._is_active = True
-        self._result = loop
-        if self._coro:
-            loop.next_tick(self._coro)
-
-    def is_active(self):
-        return self._is_active
-
-
-
-
-
+    def __await__(self):
+        print("get_current_loop.__await__...")
+        self._done = True
+        yield self
+        return self.loop
+        print("get_current_loop.__await__.done")

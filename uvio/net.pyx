@@ -79,7 +79,7 @@ class connect(Request, Future):
     def loop(Request self):
         return <object> self.req.connect.handle.loop.data
 
-    def _uv_start(Request self, Loop loop):
+    def __uv_start__(Request self, Loop loop):
 
         cdef Handle client = TCP(loop)
 

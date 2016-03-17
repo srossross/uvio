@@ -63,7 +63,7 @@ class connect(Request, Future):
     def loop(self):
         return self._loop
 
-    def _uv_start(Request self, loop):
+    def __uv_start__(Request self, loop):
 
         self._loop = loop
 

@@ -17,11 +17,11 @@ class Test(unittest.TestCase):
             called = True
 
         print("idle")
-        idle = Idle(callback)
+        idle = Idle(loop, callback)
 
         self.assertFalse(idle.is_active())
 
-        idle.start(loop)
+        idle.start()
 
         self.assertTrue(idle.is_active())
         self.assertFalse(idle.closing())

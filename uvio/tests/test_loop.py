@@ -69,9 +69,15 @@ class Test(unittest.TestCase):
         loop = Loop.create()
 
         handled = False
-        def exception_handler(type, value, traceback):
+        def exception_handler(type, value, tb):
+
             nonlocal handled
+            import traceback
+            traceback.print_exception(type, value, tb)
             handled = True
+            print(tb)
+
+            print("exception_handler", value)
 
         loop.exception_handler = exception_handler
 
@@ -80,11 +86,12 @@ class Test(unittest.TestCase):
 
         called = False
         def timeout():
+            print('timeout')
             nonlocal called
             called = True
 
         loop.next_tick(callback)
-        loop.set_timeout(timeout, 0.05)
+        loop.set_timeout(timeout, 0.002)
 
         loop.run()
         loop.close()
@@ -123,8 +130,8 @@ class Test(unittest.TestCase):
     def test_walk(self):
         loop = Loop.create()
 
-        idle = Idle(None)
-        idle.start(loop)
+        idle = Idle(loop, None)
+        idle.start()
 
         handles = []
 

@@ -53,7 +53,7 @@ class Write(FileHandle, Future):
     def result(self):
         return
 
-    def _uv_start(Request self, Loop loop):
+    def __uv_start__(Request self, Loop loop):
 
         self._is_active = True
 
@@ -91,7 +91,7 @@ class Read(FileHandle, Future):
     def is_active(self):
         return self._is_active and not self._done
 
-    def _uv_start(Request self, Loop loop):
+    def __uv_start__(Request self, Loop loop):
 
         self._is_active = True
 
@@ -136,7 +136,7 @@ class AsyncFile(FileHandle, Future):
     def result(self):
         return self
 
-    def _uv_start(Request self, Loop loop):
+    def __uv_start__(Request self, Loop loop):
 
         cdef int flags = 0
         cdef int mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH

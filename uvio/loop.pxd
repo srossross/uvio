@@ -11,8 +11,11 @@ cdef object uv_python_strerror(int code)
 
 cdef class Loop:
     cpdef object _exceptions
-    cpdef object _handles
+    cpdef object _active_handles
+    cpdef object _pending_coroutines
     cpdef object _reqs
     cpdef object _exception_handler
+
     cdef uv_loop_t* uv_loop
+    cdef uv_idle_t uv_tick
 
