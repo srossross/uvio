@@ -13,15 +13,17 @@ class Test(unittest.TestCase):
         called = False
 
         def callback():
+            print("callback called!")
             nonlocal called
             called = True
+            idle.stop()
 
         print("idle")
-        idle = Idle(loop, callback)
+        idle = Idle(callback)
 
         self.assertFalse(idle.is_active())
 
-        idle.start()
+        idle.start(loop)
 
         self.assertTrue(idle.is_active())
         self.assertFalse(idle.closing())

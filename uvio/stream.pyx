@@ -1,11 +1,11 @@
 from cpython.bytes cimport PyBytes_FromStringAndSize, PyBytes_AsString
 from libc.stdlib cimport malloc, free
-from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
+
 
 from .uv cimport *
 
 from .request cimport Request
-from .loop cimport Loop, listen_callback
+from ._loop cimport Loop
 from .handle cimport Handle
 
 from .buffer_utils import DynamicBuffer
@@ -13,13 +13,12 @@ import inspect
 import weakref
 from .futures import Future
 
-cdef void new_connection_callback(uv_stream_t* handle, int status) with gil:
-    loop = <object> handle.loop.data
-    stream = <object> handle.data
-    loop.new_connection_callback(stream, status)
+cdef void new_connection_callback(uv_stream_t* _handle, int status) with gil:
+    handle = <object> _handle.data
+    handle.accept(status)
 
 
-cdef void uv_python_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) with gil:
+cdef void alloc_callback(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) with gil:
 
     try:
         _buffer = <object> PyBytes_FromStringAndSize(NULL, suggested_size)
@@ -33,13 +32,10 @@ cdef void uv_python_alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_
 
 
 
-cdef void uv_python_read_cb(uv_stream_t* uv_stream, ssize_t nread, const uv_buf_t* buf) with gil:
+cdef void read_callback(uv_stream_t* uv_stream, ssize_t nread, const uv_buf_t* buf) with gil:
 
 
     stream = <object> uv_stream.data
-
-    loop = <object> uv_stream.loop.data
-
 
     try:
         if nread == UV_EOF:
@@ -48,99 +44,77 @@ cdef void uv_python_read_cb(uv_stream_t* uv_stream, ssize_t nread, const uv_buf_
             stream.notify_data_listeners(buf.base[:nread])
         else:
             error = IOError(nread, "Read Error: {}".format(uv_strerror(nread).decode()))
-            loop.catch(error)
+            stream.loop.catch(error)
             return
 
 
-    except Exception as error:
-        loop.catch(error)
+    except BaseException as error:
+        stream.loop.catch(error)
 
 
-cdef void uv_py_write_cb(uv_write_t* req, int status) with gil:
+cdef void write_callback(uv_write_t* _req, int status) with gil:
 
-    if status < 0:
-        network_error = IOError(status, "Write error: {}".format(uv_strerror(status).decode()))
-    else:
-        network_error = None
-
-    stream = <object> req.data
-
-    try:
-        stream.set_completed(network_error)
-    except BaseException as err:
-
-        loop = <object> req.handle.loop.data
-        loop.catch(err)
-
-    Py_DECREF(stream)
+    if _req.data:
+        req = <object> _req.data
+        req.completed(status)
 
 
-cdef void uv_python_shutdown_cb(uv_shutdown_t* req, int status) with gil:
 
-    if status < 0:
-        network_error = IOError(status, "Shutdown error: {}".format(uv_strerror(status).decode()))
-    else:
-        network_error = None
-
-    shutdown = <object> req.data
-
-    try:
-        shutdown.set_completed(network_error)
-    except BaseException as err:
-
-        loop = <object> req.handle.loop.data
-        loop.catch(err)
-
-    Py_DECREF(shutdown)
+cdef void shutdown_callback(uv_shutdown_t* _req, int status) with gil:
+    req = <object> _req.data
+    req.completed(status)
 
 class StreamShutdown(Request, Future):
 
-    def __init__(self, stream):
+    def __init__(Request self, stream):
         self.stream = stream
-
-    @property
-    def loop(Request self):
-        return <object> self.req.write.handle.loop.data
-
-    def __uv_start__(Request self, Loop loop):
 
         uv_shutdown(
             &self.req.shutdown,
             &(<Handle> self.stream).handle.stream,
-            uv_python_shutdown_cb
+            shutdown_callback
         )
 
-        self.req.req.data = <void*> (<PyObject*> self)
-        Py_INCREF(self)
+    def __uv_complete__(self, status):
+        if status < 0:
+            self._exception = IOError(status, "Shutdown error: {}".format(uv_strerror(status).decode()))
+        self._done = True
+
 
 
 class StreamWrite(Request, Future):
 
-    def __init__(self, stream, bytes buf):
+    def __init__(Request self, stream, bytes buf):
+
         self.stream = stream
         self.buf = buf
         self._result = len(buf)
 
-    @property
-    def loop(Request self):
-        return <object> self.req.write.handle.loop.data
+        cdef uv_buf_t uv_buf = uv_buf_init(self.buf, len(self.buf))
+        print("StreamWrite--", self, self.buf)
 
-    def __uv_start__(Request self, Loop loop):
+        print("self.stream", self.stream)
 
-        cdef uv_buf_t buf = uv_buf_init(self.buf, len(self.buf))
+        print("self.loop", self.loop)
 
+        self.req.req.data = <void*> self
         failure = uv_write(
             &self.req.write,
             &(<Handle> self.stream).handle.stream,
-            &buf, 1,
-            uv_py_write_cb)
+            &uv_buf, 1,
+            write_callback)
+
+        print("self.loop-2", self.loop)
 
         if failure:
             msg = "Write error {}".format(uv_strerror(failure).decode())
             raise IOError(failure,  msg)
 
-        self.req.req.data = <void*> (<PyObject*> self)
-        Py_INCREF(self)
+    def __uv_complete__(self, status):
+        if status < 0:
+            self._exception = IOError(status, "Wrire error: {}".format(uv_strerror(status).decode()))
+        self._done = True
+        print("write completed", self.buf)
 
 class BufferedStreamReader(Future):
     def __init__(self, stream, size, readline=False):
@@ -207,13 +181,11 @@ class Stream(Handle):
         self._reader = None
 
     def __repr__(Handle self):
-        return "<{} readable={} writable={} paused={} at 0x{:x} >".format(
+        return "<{} mode={} paused={} at 0x{:x} >".format(
             type(self).__qualname__,
-
-            self.readable(),
-            self.writable(),
+            self.mode,
             self.paused(),
-            <int> <PyObject*> <object> self
+            <int> <void*> <object> self
         )
 
     def unshift(self, buf):
@@ -272,12 +244,17 @@ class Stream(Handle):
     def writable(Handle self):
         return bool(uv_is_writable(&self.handle.stream))
 
+    @property
+    def mode(self):
+        return '{}{}'.format('r' if self.readable() else '', 'w' if self.writable() else '',)
+
+
     def write(Handle self, bytes buf):
 
         if not self.writable():
             raise IOError("stream is not writable")
 
-        return StreamWrite(self, buf).start(self.loop)
+        return StreamWrite(self, buf)
 
     def paused(Handle self):
         return not <int> self.handle.stream.alloc_cb
@@ -291,14 +268,12 @@ class Stream(Handle):
             return
 
         self.handle.handle.data = <void*> <object> self
-
-        # TODO: when to decref???
-        Py_INCREF(self)
+        self.loop.awaiting(self)
 
         uv_read_start(
             &self.handle.stream,
-            uv_python_alloc_cb,
-            uv_python_read_cb
+            alloc_callback,
+            read_callback
         )
 
     def pause(Handle self):
@@ -308,7 +283,9 @@ class Stream(Handle):
 
         if self.paused():
             return
-        self.handle.handle.data = NULL
+
+        self.loop.completed(self)
+
         uv_read_stop(&self.handle.stream)
         # Py_DECREF(self)
 
@@ -322,7 +299,7 @@ class Stream(Handle):
             raise IOError("stream is closing")
 
         if self._shutdown is None:
-            self._shutdown = StreamShutdown(self).start(self.loop)
+            self._shutdown = StreamShutdown(self)
 
         return self._shutdown
 
@@ -334,9 +311,13 @@ class Stream(Handle):
             msg = "Listen error {}".format(uv_strerror(failure).decode())
             raise IOError(failure,  msg)
 
-        self.handle.handle.data = <void*> (<PyObject*> self)
+        self.handle.handle.data = <void*> (<object> self)
         # Don't garbage collect me
-        self.loop._add_handle(self)
+        self.loop.awaiting(self)
+
+    def close(self):
+        self.loop.completed(self)
+        Handle.close(self)
 
 
     def pipe(self, stream, end=True):

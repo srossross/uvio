@@ -2,7 +2,7 @@ from libc.stdlib cimport malloc, free
 from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 
 from .uv cimport *
-from .loop cimport Loop, uv_python_callback, uv_python_strerror
+from ._loop cimport Loop, uv_python_strerror
 from .request cimport Request
 from .handle cimport Handle
 

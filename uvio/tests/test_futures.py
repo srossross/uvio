@@ -6,14 +6,17 @@ from uvio.futures import Future
 class F(Future):
     _is_active = False
 
-    def is_active(self):
-        return self._is_active
-
-    def __uv_start__(self, loop):
+    def start(self, loop):
+        self._done = True
         self._result = 'ok'
-        self._is_active = True
-        if self._coro:
-            loop.next_tick(self._coro)
+
+
+class Err(Future):
+    _is_active = False
+
+    def start(self, loop):
+        self._done = True
+        self._exception = TypeError("what?")
 
 class Test(unittest.TestCase):
 
@@ -22,6 +25,14 @@ class Test(unittest.TestCase):
 
         ok = await F()
         self.assertEqual("ok", ok)
+
+
+    @run(timeout=2.0)
+    async def test_error(self):
+
+        with self.assertRaises(TypeError):
+            await Err()
+
 
 
 

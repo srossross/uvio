@@ -8,7 +8,7 @@ import uvio
 
 from uvio.subprocess import ProcessOptions, Popen, PIPE
 from uvio.loop import Loop
-from uvio.stream import Pipe
+from uvio.pipes import Pipe
 from inspect import iscoroutinefunction
 
 def run_in_loop(func):

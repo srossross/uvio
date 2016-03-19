@@ -22,12 +22,11 @@ class Test(unittest.TestCase):
 
         async def callback():
             nonlocal called
-
             worker1 = worker(blocking, "Tester")
             result = await worker1
 
             self.assertEqual(result, "Hello: Tester")
-            called=True
+            called = True
 
         loop = Loop.create()
         future = loop.next_tick(callback())

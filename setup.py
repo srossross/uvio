@@ -4,7 +4,7 @@ from distutils.extension import Extension
 
 extensions = [
     Extension("uvio._hello", ["uvio/_hello.pyx"], libraries=['uv']),
-    Extension("uvio.loop", ["uvio/loop.pyx"], libraries=['uv']),
+    Extension("uvio._loop", ["uvio/_loop.pyx"], libraries=['uv']),
     Extension("uvio.handle", ["uvio/handle.pyx"], libraries=['uv']),
     Extension("uvio.idle", ["uvio/idle.pyx"], libraries=['uv']),
     Extension("uvio.timer", ["uvio/timer.pyx"], libraries=['uv']),

@@ -3,9 +3,7 @@ from libc.string cimport memcpy
 from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 
 from .uv cimport *
-from .loop cimport Loop, uv_python_callback
-
-from .loop cimport Loop
+from ._loop cimport Loop
 from .handle cimport Handle
 
 
@@ -14,7 +12,7 @@ import inspect
 import signal
 
 from .futures import Future
-from .stream import Pipe
+from .pipes import Pipe
 
 IGNORE = UV_IGNORE
 PIPE = UV_CREATE_PIPE
@@ -23,22 +21,15 @@ INHERIT_STREAM = UV_INHERIT_STREAM
 READABLE = UV_READABLE_PIPE
 WRITABLE = UV_WRITABLE_PIPE
 
-cdef void uv_python_exit_cb(uv_process_t* uv_process, int64_t exit_status, int term_signal) with gil:
+cdef void exit_callback(uv_process_t* uv_process, int64_t exit_status, int term_signal) with gil:
 
     returncode = <object> uv_process.data
-
-    returncode._term_signal = term_signal
-    returncode._result = exit_status
-
     try:
-        returncode.set_completed()
+        returncode.__uv_complete__(exit_status, term_signal)
     except BaseException as err:
-        loop = <object> uv_process.loop.data
-        loop.catch(err)
-
-
-    Py_DECREF(returncode)
-    uv_process.data = NULL
+        returncode.loop.catch(err)
+    else:
+        returncode.loop.completed(returncode)
 
 
 cdef char* copy_py_str(py_str):
@@ -120,7 +111,7 @@ cdef class ProcessOptions:
 
     def __init__(self, args, cwd=None, stdin=None, stdout=None, stderr=None, env=None):
 
-        self.opts.exit_cb = uv_python_exit_cb
+        self.opts.exit_cb = exit_callback
 
         self.opts.file = copy_py_str(args[0])
 
@@ -206,14 +197,18 @@ cdef class ProcessOptions:
 class ReturnCode(Future):
     def __init__(self, process):
         self.process = process
-        self._is_active = False
 
-    def is_active(self):
-        return self._is_active
+    @property
+    def loop(self):
+        return self.process.loop
 
-    def __uv_start__(self, loop):
-        self._is_active = True
-        self.loop = loop
+    def start(self, loop):
+        pass
+
+    def __uv_complete__(self, exit_status, term_signal):
+        self._result = exit_status
+        self._done = True
+        self.term_signal = term_signal
 
 class Popen(Handle, Future):
 
@@ -242,7 +237,7 @@ class Popen(Handle, Future):
             msg = <char*> uv_strerror(failure)
             raise RuntimeError(failure, "Could not kill process: {}".format(msg.decode()))
 
-    def __uv_start__(Handle self, Loop loop):
+    def __uv_init__(Handle self, Loop loop):
 
         self._returncode = ReturnCode(self)
 
@@ -277,7 +272,9 @@ class Popen(Handle, Future):
                 if pipe.readable():
                     pipe.resume()
 
-        self.set_completed()
+        # This is awaited just to get the loop
+        # To await the exit users can do `await popen.returncode`
+        self._done = True
 
 
     @property

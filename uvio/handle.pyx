@@ -1,6 +1,9 @@
 
 cdef class Handle:
 
+    def __dealloc__(self):
+        self.handle.handle.data = NULL
+
     property loop:
         def __get__(self):
             if <int> self.handle.handle.loop:
@@ -43,3 +46,26 @@ cdef class Handle:
 
     def has_ref(self):
         return bool(uv_has_ref(&self.handle.handle))
+
+    def start(self, loop):
+
+        if not self.handle.handle.data:
+            self.__uv_init__(loop)
+
+        self.__uv_start__()
+
+    def __uv_start__(self):
+        return
+
+    def __uv_complete__(self, *args):
+        self._done = True
+
+    def completed(self, *args):
+        try:
+            self.__uv_complete__(*args)
+        except BaseException as err:
+            self.loop.catch(self, err)
+        else:
+            self.loop.completed(self)
+
+

@@ -17,11 +17,11 @@ class Test(unittest.TestCase):
             nonlocal called
             called = True
 
-        timer = Timer(loop, callback, 0.05)
+        timer = Timer(callback, 0.05)
 
         self.assertFalse(timer.is_active())
 
-        timer.start()
+        timer.start(loop)
 
         self.assertTrue(timer.is_active())
         self.assertFalse(timer.closing())

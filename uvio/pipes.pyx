@@ -1,11 +1,11 @@
 from cpython.bytes cimport PyBytes_FromStringAndSize, PyBytes_AsString
 from libc.stdlib cimport malloc, free
-from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
+
 
 from .uv cimport *
 
 from .request cimport Request
-from .loop cimport Loop, listen_callback
+from ._loop cimport Loop
 from .handle cimport Handle
 
 import io
@@ -18,28 +18,12 @@ from .loop import get_current_loop
 cdef extern from *:
     void PyEval_InitThreads()
 
-cdef void new_connection_callback(uv_stream_t* handle, int status) with gil:
-    loop = <object> handle.loop.data
-    stream = <object> handle.data
-    loop.new_connection_callback(stream, status)
 
-cdef void uv_python_pipe_connect_cb(uv_connect_t *req, int status) with gil:
-    pipe_connect = <object> req.data
+cdef void connect_callback(uv_connect_t * _req, int status) with gil:
 
+    req = <object> _req.data
+    req.completed(status)
 
-    if status < 0:
-        error = IOError(status, "Connect Error: {}".format(uv_strerror(status).decode()))
-    else:
-        error = None
-    try:
-
-        pipe_connect.set_completed(error)
-    except Exception as error:
-        loop = <object> req.handle.loop.data
-        loop.catch(error)
-
-    Py_DECREF(pipe_connect)
-    req.data = NULL
 
 async def listen(handler, name, backlog=511):
 
@@ -50,6 +34,7 @@ async def listen(handler, name, backlog=511):
     server = Pipe(loop, handler)
     server.bind(name)
     server.listen(backlog)
+
     return server
 
 
@@ -59,13 +44,7 @@ class connect(Request, Future):
         self.name = name
         self.ipc = ipc
 
-    @property
-    def loop(self):
-        return self._loop
-
-    def __uv_start__(Request self, loop):
-
-        self._loop = loop
+    def __uv_init__(Request self, loop):
 
         PyEval_InitThreads()
 
@@ -75,7 +54,7 @@ class connect(Request, Future):
             &self.req.connect,
             &(<Handle> self._result).handle.pipe,
             self.name.encode(),
-            uv_python_pipe_connect_cb
+            connect_callback
         )
         if failure:
             msg = "Error connecting pipe '{}': {}".format(
@@ -84,15 +63,14 @@ class connect(Request, Future):
             )
             raise IOError(failure,  msg)
 
-        self.req.req.data = <void*> <object> self
-        Py_INCREF(self)
 
-    def set_completed(self, err):
+    def __uv_complete__(self, status):
 
-        if not err:
-            self._result.resume()
+        if status < 0:
+            self._exception = IOError(status, "Connect Error: {}".format(uv_strerror(status).decode()))
+            return
 
-        Future.set_completed(self, err)
+        self._done = True
 
 class Pipe(Stream):
 
@@ -113,7 +91,10 @@ class Pipe(Stream):
     def get_client(Handle self):
         return Pipe(self.loop)
 
-    def accept(Handle self):
+    def accept(Handle self, status):
+        print("-- Accept --")
+        print("accept", self, status)
+        print("-- Accept --")
 
         cdef Handle client = self.get_client()
 
@@ -144,6 +125,7 @@ class Pipe(Stream):
 
         return _buffer[:size-1].decode()
 
+
     # def peername(Handle self):
     #     cdef size_t size = 1024
     #     _buffer = <object> PyBytes_FromStringAndSize(NULL, size)
@@ -157,3 +139,11 @@ class Pipe(Stream):
 
 
 
+    def __repr__(Handle self):
+        return "<{} {} mode={} paused={} at 0x{:x} >".format(
+            type(self).__qualname__,
+            self.sockname(),
+            self.mode,
+            self.paused(),
+            <int> <void*> <object> self
+        )

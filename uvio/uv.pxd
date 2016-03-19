@@ -73,8 +73,17 @@ cdef extern from "uv.h":
 
     ctypedef ssize_t uv_file
 
-    enum uv_req_type:
+    ctypedef enum uv_req_type:
       UV_REQ
+      UV_CONNECT
+      UV_WRITE
+
+      UV_SHUTDOWN
+      UV_UDP_SEND
+      UV_FS
+      UV_WORK
+      UV_GETADDRINFO
+      UV_GETNAMEINFO
 
     ctypedef struct uv_timespec_t:
       long tv_sec

@@ -2,14 +2,14 @@ from libc.stdlib cimport malloc, free
 from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 
 from .uv cimport *
-from .loop cimport Loop, uv_python_callback
+from ._loop cimport Loop
 from .handle cimport Handle
 from .request cimport Request
 
-from .stream import Stream
-from .loop import get_current_loop
 import inspect
 
+from .stream import Stream
+from .loop import get_current_loop
 from .futures import Future
 
 cdef void connect_callback(uv_connect_t* req, int status) with gil:

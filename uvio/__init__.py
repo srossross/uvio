@@ -17,7 +17,7 @@ def run(*func, timeout=None):
 
     @wraps(func)
     def inner(self):
-        loop = Loop.create()
+        loop = Loop.create(func.__name__)
 
         coro = func(self)
 
@@ -29,6 +29,14 @@ def run(*func, timeout=None):
         if timeout:
             def stop_loop():
                 loop.stop()
+
+                print('loop._awaiting', loop._awaiting)
+                print('loop.ready', loop.ready)
+                print('-+')
+                @loop.walk
+                def walk(h):
+                    print("handle", h)
+                print('-+')
                 raise Exception("timeout")
             timer = loop.set_timeout(stop_loop, timeout)
             # Don't wait for the timout to exit the loop
@@ -37,8 +45,12 @@ def run(*func, timeout=None):
         loop.run()
         loop.close()
 
+
         if coro.cr_await is not None:
             coro.throw(Exception('coroutine {} should not be running at the end of the loop'.format(coro)))
+
+        print(loop._awaiting)
+        print(loop.ready)
 
 
 

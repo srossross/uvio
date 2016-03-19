@@ -2,6 +2,7 @@ import unittest
 
 from uvio.loop import Loop, get_current_loop
 from uvio.idle import Idle
+from uvio.timer import Timer
 
 class Test(unittest.TestCase):
 
@@ -10,6 +11,7 @@ class Test(unittest.TestCase):
         loop1 = Loop.get_default_loop()
         loop2 = Loop.get_default_loop()
 
+        self.assertEqual(loop1.name, 'default')
         self.assertIs(loop1, loop2)
 
     def test_current_loop(self):
@@ -72,12 +74,7 @@ class Test(unittest.TestCase):
         def exception_handler(type, value, tb):
 
             nonlocal handled
-            import traceback
-            traceback.print_exception(type, value, tb)
             handled = True
-            print(tb)
-
-            print("exception_handler", value)
 
         loop.exception_handler = exception_handler
 
@@ -86,12 +83,13 @@ class Test(unittest.TestCase):
 
         called = False
         def timeout():
-            print('timeout')
             nonlocal called
             called = True
 
         loop.next_tick(callback)
-        loop.set_timeout(timeout, 0.002)
+        timer = Timer(timeout, .002)
+        timer.start(loop)
+        # loop.set_timeout(timeout, 0.002)
 
         loop.run()
         loop.close()
@@ -118,7 +116,9 @@ class Test(unittest.TestCase):
             called = True
 
         loop.next_tick(callback)
-        loop.set_timeout(timeout, 0.05)
+        # loop.set_timeout(timeout, 0.05)
+        timer = Timer(timeout, .002)
+        timer.start(loop)
 
         with self.assertRaises(TypeError):
             loop.run()
@@ -130,8 +130,8 @@ class Test(unittest.TestCase):
     def test_walk(self):
         loop = Loop.create()
 
-        idle = Idle(loop, None)
-        idle.start()
+        idle = Idle(None)
+        idle.start(loop)
 
         handles = []
 
