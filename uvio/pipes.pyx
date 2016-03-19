@@ -95,37 +95,13 @@ class Pipe(Stream):
     def get_client(Handle self):
         return Pipe(self.loop)
 
-    def accept(Handle self, status):
-        print("-- Accept --")
-        print("accept", self, status)
-        print("-- Accept --")
-
-        cdef Handle client = self.get_client()
-
-        failure = uv_accept(&self.handle.stream, &client.handle.stream)
-
-        if failure:
-            client.close()
-            msg = "Accept error {}".format(uv_strerror(failure).decode())
-            raise IOError(failure,  msg)
-        else:
-            coro = self._handler(client)
-
-            try:
-                client.resume()
-                coro.send(None)
-            except StopIteration:
-                pass
-            else:
-
-                self.loop.next_tick(coro)
-
-
     def sockname(Handle self):
         cdef size_t size = 1024
         _buffer = <object> PyBytes_FromStringAndSize(NULL, size)
 
         uv_pipe_getsockname(&self.handle.pipe, _buffer, &size);
+        if not size:
+            return b''
 
         return _buffer[:size-1].decode()
 

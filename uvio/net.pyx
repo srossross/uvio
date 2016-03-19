@@ -1,6 +1,3 @@
-from libc.stdlib cimport malloc, free
-from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
-
 from .uv cimport *
 from ._loop cimport Loop
 from .handle cimport Handle
@@ -12,10 +9,10 @@ from .stream import Stream
 from .loop import get_current_loop
 from .futures import Future
 
-cdef void connect_callback(uv_connect_t* req, int status) with gil:
-    request = <object> req.data
-    loop = <object> req.handle.loop.data
-    loop.connect_callback(request, status)
+cdef void connect_callback(uv_connect_t* _req, int status) with gil:
+    if _req.data:
+        req = <object> _req.data
+    req.completed(status)
 
 
 class TCP(Stream):
@@ -47,18 +44,6 @@ class Server(TCP):
     def get_client(Handle self):
         return TCP(self.loop)
 
-    def accept(Handle self):
-
-        cdef Handle client = self.get_client()
-
-        failure = uv_accept(&self.handle.stream, &client.handle.stream)
-
-        if failure:
-            client.close()
-            msg = "Accept error {}".format(uv_strerror(failure).decode())
-            raise IOError(failure,  msg)
-        else:
-            self.loop.next_tick(self._handler(self, client))
 
 
 async def listen(handler, host, port, backlog=511):
@@ -70,24 +55,18 @@ async def listen(handler, host, port, backlog=511):
 
 class connect(Request, Future):
 
-
     def __init__(self, host, port):
         self.host = host
         self.port = port
 
-    @property
-    def loop(Request self):
-        return <object> self.req.connect.handle.loop.data
-
-    def __uv_start__(Request self, Loop loop):
+    def __uv_init__(Request self, Loop loop):
 
         cdef Handle client = TCP(loop)
 
         cdef sockaddr_in addr
         uv_ip4_addr(self.host.encode(), self.port, &addr);
 
-        self.req.req.data = <void*> (<PyObject*> self)
-        loop._add_req(self)
+        self.req.req.data = <void*> self
 
         failure = uv_tcp_connect(
             &self.req.connect,
@@ -98,12 +77,19 @@ class connect(Request, Future):
 
         self._result = client
 
-    def set_completed(self, err):
-
-        if not err:
+    def result(self):
+        "call resume before returning result"
+        if self.done():
             self._result.resume()
 
-        Future.set_completed(self, err)
+        return self._result
+
+
+    def __uv_complete__(self, status):
+        if status < 0:
+            msg = "Connect error: {}".format(uv_strerror(status).decode())
+            self._exception = IOError(status,  msg)
+        self._done = True
 
 
 

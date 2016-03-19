@@ -61,8 +61,10 @@ cdef void write_callback(uv_write_t* _req, int status) with gil:
 
 
 cdef void shutdown_callback(uv_shutdown_t* _req, int status) with gil:
-    req = <object> _req.data
-    req.completed(status)
+
+    if _req.data:
+        req = <object> _req.data
+        req.completed(status)
 
 class StreamShutdown(Request, Future):
 
@@ -303,6 +305,32 @@ class Stream(Handle):
         self.handle.handle.data = <void*> (<object> self)
         # Don't garbage collect me
         self.loop.awaiting(self)
+
+    def accept(Handle self, status):
+        print("-- Accept --")
+        print("accept", self, status)
+        print("-- Accept --")
+
+        cdef Handle client = self.get_client()
+
+        failure = uv_accept(&self.handle.stream, &client.handle.stream)
+
+        if failure:
+            client.close()
+            msg = "Accept error {}".format(uv_strerror(failure).decode())
+            raise IOError(failure,  msg)
+        else:
+            coro = self._handler(client)
+
+            try:
+                client.resume()
+                coro.send(None)
+            except StopIteration:
+                pass
+            else:
+
+                self.loop.next_tick(coro)
+
 
     def close(self):
         self.loop.completed(self)

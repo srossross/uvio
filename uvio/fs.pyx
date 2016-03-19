@@ -28,29 +28,26 @@ class FileHandle(Request):
         if self.req.fs.loop and self.req.fs.loop.data:
             return <object> self.req.fs.loop.data
 
-
+    def __del__(Request self):
+        uv_fs_req_cleanup(&self.req.fs)
 
 
 class Write(FileHandle, Future):
-    def __init__(self, fileobj, bytes data):
-        self.fileobj = fileobj
+
+    def __init__(Request self, uv_file, bytes data):
+        self.uv_file = uv_file
         self.data = data
+        self._result = len(data)
 
-    def result(self):
-        return
-
-    def __uv_start__(Request self, Loop loop):
-
-        self._is_active = True
-
-        self.req.fs.data = <void*> (<PyObject*> self)
-        Py_INCREF(self)
+        self.req.req.data = <void*> self
 
 
         cdef uv_buf_t bufs = uv_buf_init(self.data, len(self.data))
 
+        cdef Loop loop = uv_file.loop
+
         failure = uv_fs_write(
-            loop.uv_loop, &self.req.fs, self.fileobj.uv_fileno,
+            loop.uv_loop, &self.req.fs, self.uv_file.uv_fileno,
             &bufs, 1, -1, fs_callback)
 
         if failure < 0:
@@ -186,8 +183,6 @@ class AsyncFile(FileHandle, Future):
         return Read(self, n)
 
     def write(Request self, data):
-
-
         return Write(self, data)
 
     async def stream(Request self):

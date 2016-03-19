@@ -20,7 +20,7 @@ cdef class Request:
 
     def __dealloc__(self):
         self.req.req.data = NULL
-        uv_fs_req_cleanup(&self.req.fs)
+        # uv_fs_req_cleanup(&self.req.fs)
 
 
     def __uv_init__(self, loop):
