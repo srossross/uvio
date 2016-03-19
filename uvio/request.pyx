@@ -20,6 +20,7 @@ cdef class Request:
 
     def __dealloc__(self):
         self.req.req.data = NULL
+        uv_fs_req_cleanup(&self.req.fs)
 
 
     def __uv_init__(self, loop):
@@ -66,6 +67,6 @@ cdef class Request:
         try:
             self.__uv_complete__(*args)
         except BaseException as err:
-            self.loop.catch(err, self)
+            self.loop.catch(err)
         else:
             self.loop.completed(self)

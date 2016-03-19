@@ -29,15 +29,9 @@ cdef void worker_start_callback(uv_work_t *req) with gil:
 
 
 cdef void worker_cleanup_callback(uv_work_t * _req, int status) with gil:
-
-
-    req = <object> _req.data
-    try:
-        req.__uv_complete__(status)
-    except BaseException as err:
-        req.loop.catch(err)
-    else:
-        req.loop.completed(req)
+    if _req.data:
+        req = <object> _req.data
+        req.completed(status)
 
 class worker(Request, Future):
 
@@ -57,7 +51,7 @@ class worker(Request, Future):
         try:
             self._result = self._callback(*self._args, **self._kwargs)
         except Exception as err:
-            self._exec_info = sys.exc_info()
+            self._exception = err
 
 
     def __uv_init__(Request self, Loop loop):

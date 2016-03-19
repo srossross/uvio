@@ -21,9 +21,10 @@ INHERIT_STREAM = UV_INHERIT_STREAM
 READABLE = UV_READABLE_PIPE
 WRITABLE = UV_WRITABLE_PIPE
 
-cdef void exit_callback(uv_process_t* uv_process, int64_t exit_status, int term_signal) with gil:
+cdef void exit_callback(uv_process_t* _handle, int64_t exit_status, int term_signal) with gil:
 
-    returncode = <object> uv_process.data
+    returncode = <object> _handle.data
+
     try:
         returncode.__uv_complete__(exit_status, term_signal)
     except BaseException as err:
@@ -210,6 +211,16 @@ class ReturnCode(Future):
         self._done = True
         self.term_signal = term_signal
 
+        cdef ProcessOptions options = self.process.options
+
+        for i in range(3):
+
+            if options.opts.stdio[i].flags & UV_CREATE_PIPE:
+                pipe = <object> options.opts.stdio[i].data.stream.data
+                if not pipe.closing():
+                    pipe.close()
+
+
 class Popen(Handle, Future):
 
     def __init__(self, args, stdin=None, stdout=None, stderr=None, **kwargs):
@@ -250,7 +261,8 @@ class Popen(Handle, Future):
         for i in range(3):
             if options.opts.stdio[i].flags & UV_CREATE_PIPE:
                 pipe = <object> options.opts.stdio[i].data.stream.data
-                pipe.start(loop)
+                pipe.__uv_init__(loop)
+
 
         failure = uv_spawn(
             loop.uv_loop,

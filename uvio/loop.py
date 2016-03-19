@@ -11,6 +11,7 @@ def process_until_await(loop, coro, args, exception):
 
 
     while 1:
+
         try:
             if exception:
                 future = coro.throw(exception)
@@ -27,6 +28,7 @@ def process_until_await(loop, coro, args, exception):
 
         exception = future.exception()
 
+
         if future.done():
             continue
         else:
@@ -40,7 +42,7 @@ class Loop(_Loop):
         self.name = name
         self._exceptions = []
         self.exception_handler = None
-        self.ready = set()
+        self.ready = {}
         self._awaiting = {}
 
     def next_tick(self, callback, *args, **kwargs):
@@ -50,7 +52,7 @@ class Loop(_Loop):
         if not inspect.iscoroutine(callback):
             callback = partial(callback, *args, **kwargs)
 
-        self.ready.add((callback, None, None))
+        self.ready[callback] = None, None
 
     def set_timeout(self, callback, timeout):
         timer = Timer(callback, timeout)
@@ -92,7 +94,7 @@ class Loop(_Loop):
     def completed(self, future):
 
         coroutines = self._awaiting.pop(future, [])
-        self.ready.update((coroutine, None, future.exception()) for coroutine in coroutines)
+        self.ready.update({coroutine: (None, future.exception()) for coroutine in coroutines})
 
         if self.ready:
             self.ref_ticker()
@@ -109,8 +111,7 @@ class Loop(_Loop):
             # there is nothing ready
             self.unref_ticker()
             return
-
-        coroutine_or_func, args, exception = self.ready.pop()
+        coroutine_or_func, (args, exception) = self.ready.popitem()
 
         if inspect.iscoroutine(coroutine_or_func):
             process_until_await(self, coroutine_or_func, args, exception)

@@ -38,6 +38,8 @@ def run(*func, timeout=None):
                     print("handle", h)
                 print('-+')
                 raise Exception("timeout")
+
+
             timer = loop.set_timeout(stop_loop, timeout)
             # Don't wait for the timout to exit the loop
             timer.unref()
@@ -45,12 +47,14 @@ def run(*func, timeout=None):
         loop.run()
         loop.close()
 
+        if timeout:
+            timer.close()
 
         if coro.cr_await is not None:
             coro.throw(Exception('coroutine {} should not be running at the end of the loop'.format(coro)))
 
-        print(loop._awaiting)
-        print(loop.ready)
+        assert not loop._awaiting, loop._awaiting
+        assert not loop.ready, loop.ready
 
 
 

@@ -74,11 +74,15 @@ class connect(Request, Future):
 
 class Pipe(Stream):
 
-    def __init__(Handle self, Loop loop, handler=None, ipc=False):
+    def __init__(Handle self, Loop loop=None, handler=None, ipc=False):
         Stream.__init__(self)
         self.ipc = ipc
         self._handler = handler
-        uv_pipe_init(loop.uv_loop, &self.handle.pipe, ipc)
+        if loop is not None:
+            self.__uv_init__(loop)
+
+    def __uv_init__(Handle self, Loop loop):
+        uv_pipe_init(loop.uv_loop, &self.handle.pipe, self.ipc)
 
     def bind(Handle self, name):
         "Bind the pipe to a file path (Unix) or a name (Windows)."

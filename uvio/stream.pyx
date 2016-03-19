@@ -91,11 +91,6 @@ class StreamWrite(Request, Future):
         self._result = len(buf)
 
         cdef uv_buf_t uv_buf = uv_buf_init(self.buf, len(self.buf))
-        print("StreamWrite--", self, self.buf)
-
-        print("self.stream", self.stream)
-
-        print("self.loop", self.loop)
 
         self.req.req.data = <void*> self
         failure = uv_write(
@@ -104,7 +99,6 @@ class StreamWrite(Request, Future):
             &uv_buf, 1,
             write_callback)
 
-        print("self.loop-2", self.loop)
 
         if failure:
             msg = "Write error {}".format(uv_strerror(failure).decode())
@@ -114,7 +108,6 @@ class StreamWrite(Request, Future):
         if status < 0:
             self._exception = IOError(status, "Wrire error: {}".format(uv_strerror(status).decode()))
         self._done = True
-        print("write completed", self.buf)
 
 class BufferedStreamReader(Future):
     def __init__(self, stream, size, readline=False):
@@ -133,12 +126,12 @@ class BufferedStreamReader(Future):
         return self._is_active
 
     def __uv_start__(self, loop):
-        print("uv_start", loop)
+
         self._is_active = True
         self.loop = loop
 
         self.process()
-        print("self._result", self._result)
+
 
     def result(self):
         return self._result
@@ -155,16 +148,12 @@ class BufferedStreamReader(Future):
             return should_flush
 
     def process(self):
-        print("process")
-        print("self.should_flush", self.should_flush)
-        print("self.should_flush buffer", self.stream._read_buffer._buffer)
 
         if self.should_flush:
             if self.readline:
                 self._result = self.stream._read_buffer.readline(self.size)
             else:
                 self._result = self.stream._read_buffer.read(self.size)
-            print("set_completed", self._result)
             self.stream._reader = None
             self.set_completed()
 

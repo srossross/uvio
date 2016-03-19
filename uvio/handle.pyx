@@ -34,6 +34,8 @@ cdef class Handle:
 
         uv_close(&self.handle.handle, NULL);
 
+        self.loop.completed(self)
+
     def closing(self):
         "Returns true if the handle is closing or closed, false otherwise"
         return bool(uv_is_closing(&self.handle.handle))

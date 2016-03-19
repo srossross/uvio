@@ -12,11 +12,12 @@ import inspect
 from .futures import Future
 from .pipes import Pipe
 
+cdef void fs_callback(uv_fs_t* _req) with gil:
+    if _req.data:
+        req = <object> _req.data
+        req.completed()
 
 class FileHandle(Request):
-
-    def __del__(Request self):
-        uv_fs_req_cleanup(&self.req.fs)
 
     @property
     def uv_fileno(Request self):
@@ -28,22 +29,7 @@ class FileHandle(Request):
             return <object> self.req.fs.loop.data
 
 
-cdef void uv_python_fs_callback(uv_fs_t* req) with gil:
 
-    if req.result < 0:
-        error = IOError(req.result, uv_python_strerror(req.result))
-    else:
-        error = None
-
-    callback = <object> req.data
-
-    try:
-        callback.set_completed(error)
-    except BaseException as err:
-        loop = <object> req.loop.data
-        loop.catch(err)
-
-    Py_DECREF(callback)
 
 class Write(FileHandle, Future):
     def __init__(self, fileobj, bytes data):
@@ -65,7 +51,7 @@ class Write(FileHandle, Future):
 
         failure = uv_fs_write(
             loop.uv_loop, &self.req.fs, self.fileobj.uv_fileno,
-            &bufs, 1, -1, uv_python_fs_callback)
+            &bufs, 1, -1, fs_callback)
 
         if failure < 0:
             msg = uv_strerror(failure).decode()
@@ -75,35 +61,29 @@ class Write(FileHandle, Future):
 class Read(FileHandle, Future):
 
 
-    def __init__(self, fileno, n):
-        self.fileno = fileno
+    def __init__(Request self, uv_file, n):
+        self.uv_file = uv_file
         self.n = n
         self.buf = bytearray(n)
-        self._is_active = False
+
+        self.req.req.data = <void*> self
+
+        cdef uv_buf_t bufs = uv_buf_init(self.buf, self.n)
+
+        cdef Loop loop = uv_file.loop
+
+        uv_fs_read(
+            loop.uv_loop, &self.req.fs, self.uv_file.uv_fileno,
+            &bufs, 1, -1, fs_callback
+        )
 
     def result(self):
-        print("uv_fileno", self.uv_fileno)
         if self.uv_fileno > 0:
             return self.buf[:self.uv_fileno]
         else:
             return b''
 
-    def is_active(self):
-        return self._is_active and not self._done
 
-    def __uv_start__(Request self, Loop loop):
-
-        self._is_active = True
-
-        self.req.fs.data = <void*> (<PyObject*> self)
-        Py_INCREF(self)
-
-        cdef uv_buf_t bufs = uv_buf_init(self.buf, self.n)
-
-        uv_fs_read(
-            loop.uv_loop, &self.req.fs, self.fileno,
-            &bufs, 1, -1, uv_python_fs_callback
-        )
 
 
 
@@ -136,7 +116,7 @@ class AsyncFile(FileHandle, Future):
     def result(self):
         return self
 
-    def __uv_start__(Request self, Loop loop):
+    def __uv_init__(Request self, Loop loop):
 
         cdef int flags = 0
         cdef int mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
@@ -156,14 +136,21 @@ class AsyncFile(FileHandle, Future):
             flags |= O_CREAT | O_EXCL
 
 
-        self.req.fs.data = <void*> (<PyObject*> self)
-        Py_INCREF(self)
+        self.req.req.data = <void*> self
 
         uv_fs_open(
             loop.uv_loop,
             &self.req.fs,
-            self.filename.encode(), flags, mode, uv_python_fs_callback
+            self.filename.encode(), flags, mode, fs_callback
         )
+
+    def __uv_complete__(self):
+        self.uv_fileno
+
+        self._done = True
+        if self.uv_fileno < 0:
+            self._exception = IOError(self.uv_fileno, uv_python_strerror(self.uv_fileno))
+            return
 
     async def __aenter__(self):
         return await self
@@ -196,7 +183,7 @@ class AsyncFile(FileHandle, Future):
         if n <= 0:
             n = self._size()
 
-        return Read(self.req.fs.result, n)
+        return Read(self, n)
 
     def write(Request self, data):
 

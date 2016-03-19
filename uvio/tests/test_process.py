@@ -7,24 +7,10 @@ import sys
 import uvio
 
 from uvio.subprocess import ProcessOptions, Popen, PIPE
-from uvio.loop import Loop
+from uvio import run
 from uvio.pipes import Pipe
 from inspect import iscoroutinefunction
 
-def run_in_loop(func):
-
-    @wraps(func)
-    def inner(self):
-        loop = Loop.create()
-
-        if iscoroutinefunction(func):
-            loop.next_tick(func(self))
-        else:
-            loop.next_tick(func)
-
-        loop.run()
-
-    return inner
 
 class Test(unittest.TestCase):
 
@@ -50,7 +36,7 @@ class Test(unittest.TestCase):
 
         self.assertIs(opts.stderr, pipe3)
 
-    @run_in_loop
+    @run(timeout=1)
     async def test_stdio_fd(self):
 
         with open("test.out", "w") as fd:
@@ -60,7 +46,9 @@ class Test(unittest.TestCase):
         with open("test.out", "r") as fd:
             self.assertEqual(fd.read(), 'hello\n')
 
-    @run_in_loop
+        print("done!")
+
+    @run(timeout=1)
     async def test_stdout_env(self):
 
         stdout_captured = None
@@ -91,7 +79,7 @@ class Test(unittest.TestCase):
         self.assertEqual(stdout_captured, b'env: WOW!\n')
 
 
-    @run_in_loop
+    @run(timeout=1)
     async def test_stdout_pipe(self):
 
         stdout_captured = None
@@ -118,7 +106,7 @@ class Test(unittest.TestCase):
         self.assertEqual(stdout_captured, b'hello\n')
 
 
-    @run_in_loop
+    @run(timeout=1)
     async def test_stderr_pipe(self):
 
         stderr_captured = None
@@ -147,11 +135,12 @@ class Test(unittest.TestCase):
         self.assertEqual(stderr_captured, b'hello\n')
 
 
-    @run_in_loop
+    @run(timeout=1)
     async def test_stdio_pipe(self):
 
         stdout_captured = None
         stdout_ended = False
+
         p0 = await Popen(
             ['python', '-c', 'import sys; print("echo: +{}+".format(sys.stdin.read()))'],
             stdin=PIPE, stdout=PIPE, stderr=sys.stderr
@@ -179,28 +168,17 @@ class Test(unittest.TestCase):
         self.assertTrue(stdout_ended)
         self.assertEqual(stdout_captured, b'echo: +write me+\n')
 
+    @run(timeout=1)
+    async def test_simple(self):
 
-    def test_simple(self):
+        p0 = await Popen(['python', '-c', 'print("hello")'])
+        self.assertEqual(await p0.returncode, 0)
 
-        async def echo():
+    @run(timeout=1)
+    async def test_exit_status(self):
 
-            p0 = await Popen(['python', '-c', 'print("hello")'])
-            self.assertEqual(await p0.returncode, 0)
-
-        loop = Loop.create()
-        loop.next_tick(echo())
-        loop.run()
-
-    def test_exit_status(self):
-
-        async def echo():
-
-            p0 = Popen(['python', '-c', 'exit(17)'])
-            self.assertNotEqual(await p0, 0)
-
-        loop = Loop.create()
-        loop.next_tick(echo())
-        loop.run()
+        p0 = Popen(['python', '-c', 'exit(17)'])
+        self.assertNotEqual(await p0, 0)
 
 
 if __name__ == '__main__':
