@@ -1,4 +1,4 @@
-
+import signal
 import unittest
 import os
 from contextlib import contextmanager
@@ -46,7 +46,7 @@ class Test(unittest.TestCase):
         with open("test.out", "r") as fd:
             self.assertEqual(fd.read(), 'hello\n')
 
-        print("done!")
+
 
     @run(timeout=1)
     async def test_stdout_env(self):
@@ -177,8 +177,29 @@ class Test(unittest.TestCase):
     @run(timeout=1)
     async def test_exit_status(self):
 
-        p0 = Popen(['python', '-c', 'exit(17)'])
-        self.assertNotEqual(await p0, 0)
+        p0 = await Popen(['python', '-c', 'exit(17)'])
+        self.assertEqual(await p0.returncode, 17)
+
+
+    @run(timeout=1)
+    async def test_kill(self):
+
+        p0 = await Popen(['python', '-c', 'import time; time.sleep(12)'])
+        await uvio.sleep(.1)
+        p0.kill()
+
+        self.assertEqual(await p0.returncode, 0)
+
+
+    @run(timeout=1)
+    async def test_interupt(self):
+
+        p0 = await Popen(['python', '-c', 'import time; time.sleep(17)'], stdout=sys.stderr, stderr=sys.stderr)
+        await uvio.sleep(.1)
+        p0.kill(signal.SIGINT)
+        rc = p0.returncode
+        self.assertEqual(await rc, 1)
+
 
 
 if __name__ == '__main__':

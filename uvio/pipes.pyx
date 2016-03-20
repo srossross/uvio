@@ -120,10 +120,10 @@ class Pipe(Stream):
 
 
     def __repr__(Handle self):
-        return "<{} {} mode={} paused={} at 0x{:x} >".format(
+        return "<{} {} mode='{}' paused={} at 0x{:x} >".format(
             type(self).__qualname__,
             self.sockname(),
-            self.mode,
+            self.mode or '-',
             self.paused(),
             <int> <void*> <object> self
         )

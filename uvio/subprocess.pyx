@@ -8,6 +8,7 @@ from .handle cimport Handle
 
 
 import os
+import sys
 import inspect
 import signal
 
@@ -198,18 +199,35 @@ cdef class ProcessOptions:
 class ReturnCode(Future):
     def __init__(self, process):
         self.process = process
+        self._result = None
+        self._term_signal = None
 
+    def __repr__(self):
+        return "<{} exit_status={} term_signal={}>".format(
+            type(self).__qualname__,
+            self.exit_status,
+            self.term_signal,
+        )
     @property
     def loop(self):
         return self.process.loop
 
+    @property
+    def exit_status(self):
+        return self._result
+
+    @property
+    def term_signal(self):
+        return self._term_signal
+
     def start(self, loop):
         pass
+
 
     def __uv_complete__(self, exit_status, term_signal):
         self._result = exit_status
         self._done = True
-        self.term_signal = term_signal
+        self._term_signal = term_signal
 
         cdef ProcessOptions options = self.process.options
 
@@ -227,12 +245,18 @@ class Popen(Handle, Future):
 
         if stdin == PIPE:
             stdin = Pipe()
+        elif stdin is None:
+            stdin = sys.stdin
 
         if stdout == PIPE:
             stdout = Pipe()
+        elif stdout is None:
+            stdout = sys.stdout
 
         if stderr == PIPE:
             stderr = Pipe()
+        elif stderr is None:
+            stderr = sys.stderr
 
         self.options = ProcessOptions(args, stdin=stdin, stdout=stdout, stderr=stderr, **kwargs)
         self._returncode = None
@@ -304,4 +328,9 @@ class Popen(Handle, Future):
     @property
     def returncode(self):
         return self._returncode
+
+    @property
+    def pid(Handle self):
+        return self.handle.process.pid
+
 

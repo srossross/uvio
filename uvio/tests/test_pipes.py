@@ -23,22 +23,24 @@ class Test(unittest.TestCase):
         data_recieved = False
 
         async def handler(socket):
-
-            @socket.data
-            def echo(buf):
-                nonlocal data_recieved
-                data_recieved = buf
-                socket.close()
-                client.close()
-                server.close()
-
+            print("handler", socket)
+            socket.write(b"this is a test")
+            socket.close()
+            server.close()
 
         server = await uvio.pipes.listen(handler, "x.sock")
+
         client = await uvio.pipes.connect("x.sock")
-        await client.write(b"this is a test")
+
+        print("#### server", server)
+        print("#### client", client)
+        self.assertEqual(await client.read(1), b't')
+        print("#### read3")
+        self.assertEqual(await client.read(3), b'his')
+        print("###### got here")
 
 
-        self.assertEqual(b'this is a test', data_recieved)
+        # self.assertEqual(b'this is a test', data_recieved)
 
 
     @uvio.run(timeout=1)

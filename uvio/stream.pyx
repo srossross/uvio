@@ -8,9 +8,8 @@ from .request cimport Request
 from ._loop cimport Loop
 from .handle cimport Handle
 
-from .buffer_utils import DynamicBuffer
+from .buffer_utils import StreamRead, StreamReadline
 import inspect
-import weakref
 from .futures import Future
 
 cdef void new_connection_callback(uv_stream_t* _handle, int status) with gil:
@@ -111,54 +110,6 @@ class StreamWrite(Request, Future):
             self._exception = IOError(status, "Wrire error: {}".format(uv_strerror(status).decode()))
         self._done = True
 
-class BufferedStreamReader(Future):
-    def __init__(self, stream, size, readline=False):
-        self._stream = weakref.ref(stream)
-        self.size = size
-        self.readline = readline
-        self._out_buffers = []
-        self._is_active = False
-        Future.__init__(self)
-
-    @property
-    def stream(self):
-        return self._stream()
-
-    def is_active(self):
-        return self._is_active
-
-    def __uv_start__(self, loop):
-
-        self._is_active = True
-        self.loop = loop
-
-        self.process()
-
-
-    def result(self):
-        return self._result
-
-    @property
-    def should_flush(self):
-        if self.stream._eof:
-            return True
-        else:
-            should_flush = len(self.stream._read_buffer) >= self.size
-            if self.readline:
-                should_flush |= '\n' in self.stream._read_buffer
-
-            return should_flush
-
-    def process(self):
-
-        if self.should_flush:
-            if self.readline:
-                self._result = self.stream._read_buffer.readline(self.size)
-            else:
-                self._result = self.stream._read_buffer.read(self.size)
-            self.stream._reader = None
-            self.set_completed()
-
 
 
 class Stream(Handle):
@@ -167,31 +118,46 @@ class Stream(Handle):
         self._paused = False
         self._data_listeners = []
         self._end_listeners = []
-        self._read_buffer = DynamicBuffer()
+        self._buffering = False
+        self._read_buffer = b''
         self._eof = False
         self._reader = None
 
+    @property
+    def buffering(self):
+        return self._buffering
+
+    @buffering.setter
+    def buffering(self, value):
+        self._buffering = bool(value)
+
+
     def __repr__(Handle self):
-        return "<{} mode={} paused={} at 0x{:x} >".format(
+        return "<{} mode='{}' paused={} at 0x{:x} >".format(
             type(self).__qualname__,
-            self.mode,
+            self.mode or '-',
             self.paused(),
             <int> <void*> <object> self
         )
 
     def unshift(self, buf):
-        self._read_buffer.unshift(buf)
+        if not self.buffering:
+            raise Exception("this stream is not buffering input")
+
+
+        self._read_buffer = buf + self._read_buffer
 
     def read(self, n):
-        if self._reader is None:
-            self._reader = BufferedStreamReader(self, n)
-            return self._reader
+        self.buffering = True
+        if self._reader is not None:
+            raise Exception("already reading")
 
-        raise Exception("already reading")
+        self._reader = StreamRead(self, n)
+        return self._reader
 
 
-    def readline(self, size=None):
-        return BufferedStreamReader(self, size, readline=True)
+    def readline(self, max_size=None):
+        return StreamReadline(self, max_size)
 
     def data(self, coro_func):
 
@@ -202,9 +168,11 @@ class Stream(Handle):
         return coro_func
 
     def notify_data_listeners(self, buf):
-        if self._reader:
-            self._read_buffer.append(buf)
-            self._reader.process()
+        if self.buffering:
+            self._read_buffer += buf
+
+            if self._reader:
+                self._reader.notify()
 
         for listener in self._data_listeners:
             listener(buf)
@@ -220,10 +188,8 @@ class Stream(Handle):
     def notify_end_listeners(self):
 
         self._eof = True
-
         if self._reader:
-            self._read_buffer.eof()
-            self._reader.process()
+            self._reader.notify()
 
         for listener in self._end_listeners:
             listener()
@@ -268,17 +234,13 @@ class Stream(Handle):
         )
 
     def pause(Handle self):
-
-        if self._reader:
-            raise Exception("Can not pause while awaiting read")
-
         if self.paused():
             return
 
+        # Take this off the _awaiting set to
+        # allow refcount to go to 0
         self.loop.completed(self)
-
         uv_read_stop(&self.handle.stream)
-        # Py_DECREF(self)
 
     _shutdown = None
 

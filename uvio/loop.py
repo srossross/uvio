@@ -92,10 +92,11 @@ class Loop(_Loop):
 
 
     def completed(self, future):
-
+        print("completed", self, future)
         coroutines = self._awaiting.pop(future, [])
+        print("coroutines", coroutines)
         self.ready.update({coroutine: (None, future.exception()) for coroutine in coroutines})
-
+        print("self.ready", self.ready)
         if self.ready:
             self.ref_ticker()
 

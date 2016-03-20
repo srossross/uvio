@@ -32,6 +32,9 @@ cdef class Request:
             self.__uv_init__(loop)
             self.req.req.data = <void*> self
 
+    def cancel(self):
+      uv_cancel(&self.req.req)
+
     property req_type:
         def __get__(self):
             return req_type_map.get(self.req.req.type)

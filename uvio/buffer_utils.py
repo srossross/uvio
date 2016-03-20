@@ -1,25 +1,54 @@
 import io
+import weakref
+from .futures import Future
 
 
-class DynamicBuffer:
+class StreamRead(Future):
+    def __init__(self, stream, size):
 
-    def __init__(self):
-        self._eof = False
-        self._buffer = None
+        Future.__init__(self)
 
-    def append(self, buf):
-        if not self._buffer:
-            self._buffer = buf
+        self._stream = weakref.ref(stream)
+        self.size = size
+        self._result = None
+
+        if not self.ready:
+            stream.resume()
+
+    @property
+    def stream(self):
+        return self._stream()
+
+    def start(self, loop):
+        self.loop = loop
+
+    @property
+    def ready(self):
+        if self.stream._eof:
+            return True
         else:
-            self._buffer += buf
+            return len(self.stream._read_buffer) >= self.size
 
-    def eof(self):
-        self._eof = True
 
-    def __len__(self):
-        return len(self._buffer)
+    def notify(self):
+        print("notify", self)
+        print("self.ready", self.ready)
+        print('self.stream._read_buffer', self.stream._read_buffer, self.size)
 
-    def read(self, size):
-        result = self._buffer[:size]
-        self._buffer = self._buffer[size:]
-        return result
+        if self.ready:
+            if self._result is None:
+                # self.stream._reader = None
+                self._result = self.stream._read_buffer[:self.size]
+                self.stream._read_buffer = self.stream._read_buffer[self.size:]
+
+            self.stream.pause()
+            print('self.loop.completed', self)
+            self.loop.completed(self)
+
+            self.stream._reader = None
+
+
+
+
+class StreamReadline:
+    pass

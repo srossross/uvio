@@ -416,3 +416,6 @@ cdef extern from "uv.h":
 
     int uv_ip4_name(const sockaddr_in* src, char* dst, size_t size);
     int uv_ip6_name(const sockaddr_in6* src, char* dst, size_t size);
+
+    int uv_cancel(uv_req_t* req)
+
