@@ -2,7 +2,7 @@ import unittest
 
 from uvio.loop import Loop
 import uvio
-from uvio.net import connect
+from uvio.net import connect, getaddrinfo
 
 import time
 class Test(unittest.TestCase):
@@ -16,6 +16,20 @@ class Test(unittest.TestCase):
         loop = Loop.create()
         loop.next_tick(connection())
         loop.run()
+
+    @uvio.run(timeout=1)
+    async def test_getaddrinfo_local(self):
+
+        # print(await getaddrinfo("google.com"))
+        addr = await getaddrinfo("127.0.0.1")
+        self.assertEqual(repr(addr), '<SockAddrIn "127.0.0.1">')
+
+    @uvio.run(timeout=1)
+    async def test_getaddrinfo(self):
+
+        with self.assertRaises(IOError):
+            await getaddrinfo("doesnotexist.net.doesnotexist")
+
 
     @uvio.run(timeout=1)
     async def test_server_connect(self):
@@ -61,29 +75,22 @@ class Test(unittest.TestCase):
         print("Server", server)
         await connection()
 
-    @unittest.skip('na')
-    def test_client_connect(self):
+    @uvio.run(timeout=2)
+    async def test_client_connect(self):
 
-        async def connection():
-            client = connect("google.com", 80)
+
+            client = await connect("google.com", 80)
 
             @client.data
-            def client_data(client, data):
-                pass
+            def client_data(data):
+                print("client_data",data)
+                client.close()
 
             @client.end
-            def client_end(client, status):
-                pass
+            def client_end():
+                print("end")
 
-            print ("connect")
-            await client
-            print ("connected")
-
-
-        loop = Loop.create()
-        loop.next_tick(connection())
-        loop.run()
-
+            await client.write(b'GET / HTTP/1.1\r\n\r\n')
 
 
 

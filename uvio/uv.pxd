@@ -226,6 +226,9 @@ cdef extern from "uv.h":
     struct sockaddr_in:
         pass
 
+    struct sockaddr_in6:
+        pass
+
     ctypedef struct uv_tcp_t:
         void* data;
         uv_loop_t* loop
@@ -291,6 +294,10 @@ cdef extern from "uv.h":
       int pid
 
 
+    ctypedef struct uv_getaddrinfo_t:
+        void *data
+        uv_loop_t* loop;
+
     ctypedef struct uv_pipe_t:
       void *data
       uv_loop_t* loop
@@ -336,7 +343,8 @@ cdef extern from "uv.h":
       # XX(UDP_SEND, udp_send)
       uv_fs_t fs
       # XX(WORK, work)
-      # XX(GETADDRINFO, getaddrinfo)
+
+      uv_getaddrinfo_t getaddrinfo
       # XX(GETNAMEINFO, getnameinfo)
 
     ctypedef enum uv_stdio_flags:
@@ -376,4 +384,35 @@ cdef extern from "uv.h":
     int uv_spawn(uv_loop_t* loop, uv_process_t* handle, const uv_process_options_t* options)
     int uv_process_kill(uv_process_t* handle, int signum)
 
+    ctypedef int socklen_t
 
+    cdef struct addrinfo:
+      int ai_flags
+      int ai_family
+      int ai_socktype
+      int ai_protocol
+      socklen_t ai_addrlen
+      sockaddr *ai_addr
+      char *ai_canonname
+      addrinfo* ai_next
+
+
+
+    ctypedef void (*uv_getaddrinfo_cb)(uv_getaddrinfo_t* req, int status,  addrinfo* res)
+
+    int uv_getaddrinfo(
+        uv_loop_t* loop,
+        uv_getaddrinfo_t* req,
+        uv_getaddrinfo_cb getaddrinfo_cb,
+        const char* node,
+        const char* service,
+        const addrinfo* hints
+    )
+
+
+    enum: PF_INET
+    enum: SOCK_STREAM
+    enum: IPPROTO_TCP
+
+    int uv_ip4_name(const sockaddr_in* src, char* dst, size_t size);
+    int uv_ip6_name(const sockaddr_in6* src, char* dst, size_t size);

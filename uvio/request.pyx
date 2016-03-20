@@ -52,6 +52,8 @@ cdef class Request:
                 uv_loop = self.req.shutdown.handle.loop
             elif req_type ==  'write':
                 uv_loop = self.req.write.handle.loop
+            elif req_type == 'getaddrinfo':
+              uv_loop = self.req.getaddrinfo.loop
             else:
                 raise AttributeError("request type '{}' does have attribute loop".format(req_type))
 
