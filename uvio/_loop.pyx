@@ -9,6 +9,7 @@ from .request cimport Request
 
 import sys
 import inspect
+import datetime
 
 cdef void ticker_callback(uv_idle_t* handle) with gil:
     loop = <object> handle.loop.data
@@ -162,3 +163,5 @@ cdef class Loop:
             Py_INCREF(<object> loop)
 
         return loop
+
+

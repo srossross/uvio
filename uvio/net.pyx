@@ -50,6 +50,19 @@ class TCP(Stream):
             msg = "Bind error: {}".format(uv_strerror(failure).decode())
             raise IOError(failure,  msg)
 
+    def sockname(Handle self):
+        cdef int size = sizeof(sockaddr_in);
+        cdef SockAddrIn addr = SockAddrIn()
+        uv_tcp_getsockname(&self.handle.tcp, <sockaddr*> &addr._addr, &size);
+        return addr
+
+    def getpeername(Handle self):
+        cdef int size = sizeof(sockaddr_in);
+        cdef SockAddrIn addr = SockAddrIn()
+        uv_tcp_getpeername(&self.handle.tcp, <sockaddr*> &addr._addr, &size);
+        return addr
+
+
 class Server(TCP):
 
     def __init__(self, loop, handler):
@@ -106,10 +119,21 @@ class Connect(Request, Future):
 cdef class SockAddrIn:
     cdef sockaddr_in _addr
 
+    property ip4:
+        def __get__(self):
+            cdef char addr[17];
+            uv_ip4_name(&self._addr, addr,  16)
+            return addr.decode()
+
+    property ip6:
+        def __get__(self):
+            cdef char addr[50];
+            uv_ip6_name(<sockaddr_in6*> &self._addr, addr,  49)
+            return addr.decode()
+
     def __repr__(self):
-        cdef char addr[17];
-        uv_ip4_name(&self._addr, addr,  16)
-        return '<SockAddrIn "{}">'.format(addr.decode())
+
+        return '<SockAddrIn "{}">'.format(self.ip4)
 
 
 cdef class AddrInfo:

@@ -240,6 +240,16 @@ cdef extern from "uv.h":
     int uv_tcp_init(uv_loop_t*, uv_tcp_t* handle);
     int uv_tcp_bind(uv_tcp_t* handle, const sockaddr* addr, unsigned int flags);
 
+
+    int uv_tcp_getsockname(const uv_tcp_t* handle,
+                                 sockaddr* name,
+                                 int* namelen);
+
+    int uv_tcp_getpeername(const uv_tcp_t* handle,
+                                 sockaddr* name,
+                                 int* namelen);
+
+
     int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb);
     int uv_accept(uv_stream_t* server, uv_stream_t* client);
 
@@ -418,4 +428,6 @@ cdef extern from "uv.h":
     int uv_ip6_name(const sockaddr_in6* src, char* dst, size_t size);
 
     int uv_cancel(uv_req_t* req)
+
+    uint64_t uv_now(const uv_loop_t* loop)
 
