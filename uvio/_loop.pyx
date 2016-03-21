@@ -49,21 +49,21 @@ cdef void walk_callback(uv_handle_t* uv_handle, void* arg):
         loop.catch(err)
 
 
-# cdef void uv_python_callback(uv_handle_t* handle) with gil:
-#     callback = <object> handle.data
-#     try:
-#         callback.set_completed()
-#     except BaseException as err:
-#         loop = <object> handle.loop.data
-#         loop.catch(err)
-
-#     Py_DECREF(callback)
-
 cdef class Loop:
 
 
-    def run(self):
+    def run(self, once=False, blocking=False):
+        """loop.run(once=False, blocking=False)
 
+        This function runs the event loop. It will act differently depending on the specified mode:
+        Runs the event loop until there are no more active and referenced handles or requests.
+
+        :param once: Poll for i/o once. Note that this function blocks if there are no pending callbacks.
+        :param blocking: Poll for i/o once but don’t block if there are no pending callbacks.
+
+        If run returns True then there are pending requests waiting to be handled
+        (meaning you should run the event loop again sometime in the future).
+        """
         #clear exceptions
         self._exceptions[:] = []
 
@@ -71,8 +71,15 @@ cdef class Loop:
 
         uv_idle_start(&self.uv_tick, ticker_callback);
 
+        cdef uv_run_mode mode =  UV_RUN_DEFAULT
+        if blocking:
+            mode = UV_RUN_NOWAIT
+        elif once:
+            mode = UV_RUN_ONCE
+
+        cdef int result
         with nogil:
-            uv_run(self.uv_loop, UV_RUN_DEFAULT)
+            result = uv_run(self.uv_loop, mode)
 
         uv_idle_stop(&self.uv_tick)
         uv_close(<uv_handle_t*> &self.uv_tick, NULL)
@@ -81,17 +88,36 @@ cdef class Loop:
             value = self.exceptions[0][1]
             raise value
 
+        return bool(result)
+
 
     def alive(self):
+        'Test if there are active handles or request in the loop.'
         return bool(uv_loop_alive(self.uv_loop))
 
     def stop(self):
+        '''
+        Stop the event loop, causing loop.run() to end as soon as possible.
+        This will happen not sooner than the next loop iteration.
+        If this function was called before blocking for i/o, the loop won’t block for i/o on this iteration.
+
+        '''
         return uv_stop(self.uv_loop)
 
     def close(self):
+        '''
+        Releases all internal loop resources.
+        Call this function only when the loop has finished executing and all open handles and requests have been closed,
+        or it will raise UVBusy.
+        '''
+
         return uv_loop_close(self.uv_loop)
 
     def walk(self, object callback):
+        '''walk(walk_cb)
+
+        Walk the list of handles: walk_cb will be called for each handle.
+        '''
         uv_walk(self.uv_loop, walk_callback, <void*> callback)
         for exc_info in self.exceptions:
             raise exc_info[1]

@@ -7,7 +7,7 @@ import sys
 import uvio
 
 from uvio.subprocess import ProcessOptions, Popen, PIPE
-from uvio import run
+from uvio import sync
 from uvio.pipes import Pipe
 from inspect import iscoroutinefunction
 
@@ -36,7 +36,7 @@ class Test(unittest.TestCase):
 
         self.assertIs(opts.stderr, pipe3)
 
-    @run(timeout=1)
+    @sync(timeout=1)
     async def test_stdio_fd(self):
 
         with open("test.out", "w") as fd:
@@ -48,7 +48,7 @@ class Test(unittest.TestCase):
 
 
 
-    @run(timeout=1)
+    @sync(timeout=1)
     async def test_stdout_env(self):
 
         stdout_captured = None
@@ -79,7 +79,7 @@ class Test(unittest.TestCase):
         self.assertEqual(stdout_captured, b'env: WOW!\n')
 
 
-    @run(timeout=1)
+    @sync(timeout=1)
     async def test_stdout_pipe(self):
 
         stdout_captured = None
@@ -106,7 +106,7 @@ class Test(unittest.TestCase):
         self.assertEqual(stdout_captured, b'hello\n')
 
 
-    @run(timeout=1)
+    @sync(timeout=1)
     async def test_stderr_pipe(self):
 
         stderr_captured = None
@@ -135,7 +135,7 @@ class Test(unittest.TestCase):
         self.assertEqual(stderr_captured, b'hello\n')
 
 
-    @run(timeout=1)
+    @sync(timeout=1)
     async def test_stdio_pipe(self):
 
         stdout_captured = None
@@ -168,20 +168,20 @@ class Test(unittest.TestCase):
         self.assertTrue(stdout_ended)
         self.assertEqual(stdout_captured, b'echo: +write me+\n')
 
-    @run(timeout=1)
+    @sync(timeout=1)
     async def test_simple(self):
 
         p0 = await Popen(['python', '-c', 'print("hello")'])
         self.assertEqual(await p0.returncode, 0)
 
-    @run(timeout=1)
+    @sync(timeout=1)
     async def test_exit_status(self):
 
         p0 = await Popen(['python', '-c', 'exit(17)'])
         self.assertEqual(await p0.returncode, 17)
 
 
-    @run(timeout=1)
+    @sync(timeout=1)
     async def test_kill(self):
 
         p0 = await Popen(['python', '-c', 'import time; time.sleep(12)'])
@@ -191,7 +191,7 @@ class Test(unittest.TestCase):
         self.assertEqual(await p0.returncode, 0)
 
 
-    @run(timeout=1)
+    @sync(timeout=1)
     async def test_interupt(self):
 
         p0 = await Popen(['python', '-c', 'import time; time.sleep(17)'], stdout=sys.stderr, stderr=sys.stderr)

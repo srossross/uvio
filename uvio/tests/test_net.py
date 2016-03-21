@@ -17,21 +17,21 @@ class Test(unittest.TestCase):
         loop.next_tick(connection())
         loop.run()
 
-    @uvio.run(timeout=1)
+    @uvio.sync(timeout=1)
     async def test_getaddrinfo_local(self):
 
         # print(await getaddrinfo("google.com"))
         addr = await getaddrinfo("127.0.0.1")
         self.assertEqual(repr(addr), '<SockAddrIn "127.0.0.1">')
 
-    @uvio.run(timeout=1)
+    @uvio.sync(timeout=1)
     async def test_getaddrinfo(self):
 
         with self.assertRaises(IOError):
             await getaddrinfo("doesnotexist.net.doesnotexist")
 
 
-    @uvio.run(timeout=1)
+    @uvio.sync(timeout=1)
     async def test_server_connect(self):
 
         async def handler(socket):
@@ -75,7 +75,7 @@ class Test(unittest.TestCase):
         print("Server", server)
         await connection()
 
-    @uvio.run(timeout=2)
+    @uvio.sync(timeout=2)
     async def test_client_connect(self):
 
 

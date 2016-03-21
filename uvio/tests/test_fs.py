@@ -4,13 +4,13 @@ import os
 
 import uvio
 
-from uvio import run
+from uvio import sync
 from uvio.fs import open as uvopen, stream
 
 test_data = os.path.join(os.path.dirname(__file__), 'data.txt')
 class Test(unittest.TestCase):
 
-    @run(timeout=1)
+    @sync(timeout=1)
     async def test_read(self):
 
 
@@ -24,7 +24,7 @@ class Test(unittest.TestCase):
             self.assertEqual(data, b"H")
 
 
-    @run(timeout=1)
+    @sync(timeout=1)
     async def test_write(self):
 
         async with uvopen('test_write.txt', 'w') as fd:
@@ -36,7 +36,7 @@ class Test(unittest.TestCase):
             self.assertEqual(data, "Hello World")
 
     @unittest.skip('n/i')
-    @run(timeout=1.0)
+    @sync(timeout=1.0)
     async def test_stream(self):
 
         fd1 = await uvio.fs.stream(test_data, 'r')
@@ -58,7 +58,7 @@ class Test(unittest.TestCase):
         fd1.resume()
 
     @unittest.skip('n/i')
-    @run(timeout=1.0)
+    @sync(timeout=1.0)
     async def test_stream_read(self):
 
         fd1 = await uvio.fs.stream(test_data, 'r')
@@ -82,7 +82,7 @@ class Test(unittest.TestCase):
         # fd1.resume()
 
 
-    @run(timeout=1)
+    @sync(timeout=1)
     async def test_fstat(self):
 
 

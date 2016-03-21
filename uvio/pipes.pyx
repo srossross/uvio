@@ -26,7 +26,24 @@ cdef void connect_callback(uv_connect_t * _req, int status) with gil:
 
 
 async def listen(handler, name, backlog=511):
+    '''listen(handler, name, backlog=511)
 
+    example::
+
+        async def echo_handler(socket):
+
+            @socket.data
+            def echo(buf):
+                print("server: on data", buf)
+                socket.write(b"echo: " + buf)
+                socket.close()
+
+            @socket.end
+            def end():
+                print("on socket end")
+
+        server = await uvio.pipes.listen(echo_handler, "test.sock")
+    '''
     PyEval_InitThreads()
 
     loop = await get_current_loop()
@@ -39,7 +56,21 @@ async def listen(handler, name, backlog=511):
 
 
 class connect(Request, Future):
+    '''connect(name, ipc=False)
 
+    Connect to a named pipe (windows) or a unix domain socket
+
+    example::
+
+        pipe = await uvio.pipes.connect("test.sock")
+
+        @pipe.data
+        def on_data(buf):
+            print("pipe recieved some data!", buf)
+
+        await pipe.write(b'Write to the pipe!')
+
+    '''
     def __init__(self, name, ipc=False):
         self.name = name
         self.ipc = ipc
@@ -63,6 +94,9 @@ class connect(Request, Future):
             )
             raise IOError(failure,  msg)
 
+    def before_send(self):
+        if not self._exception:
+            self._result.resume()
 
     def __uv_complete__(self, status):
 
@@ -113,11 +147,6 @@ class Pipe(Stream):
     #     uv_pipe_getpeername(&self.handle.pipe, _buffer, &size);
 
     #     return _buffer[:size]
-
-
-
-
-
 
     def __repr__(Handle self):
         return "<{} {} mode='{}' paused={} at 0x{:x} >".format(

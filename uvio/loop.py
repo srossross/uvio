@@ -1,3 +1,7 @@
+"""
+UVIO Event Loop
+
+"""
 import inspect
 import sys
 
@@ -7,15 +11,25 @@ from .idle import Idle
 from .timer import Timer
 from .futures import Future
 
-def process_until_await(loop, coro, args, exception):
+def process_until_await(loop, future, coro):
+    """
+    Process the coroutine `coro` until it is completed
 
+    :param loop: an uvio.loop.Loop instance
+    :param future: an uvio.futures.Future instance
+    :param coro: a coroutine
+    """
 
     while 1:
 
         try:
-            if exception:
-                future = coro.throw(exception)
+            if future and future.exception():
+                future = coro.throw(future.exception())
             else:
+
+                if future:
+                    future.before_send()
+
                 future = coro.send(None)
 
         except StopIteration:
@@ -25,9 +39,6 @@ def process_until_await(loop, coro, args, exception):
             return
 
         future.ensure_started(loop)
-
-        exception = future.exception()
-
 
         if future.done():
             continue
@@ -46,15 +57,27 @@ class Loop(_Loop):
         self._awaiting = {}
 
     def next_tick(self, callback, *args, **kwargs):
+        """
+        Once the current event loop turn runs to completion,
+        call the callback or coroutine function::
+
+            loop.next_tick(callback)
+
+
+        """
         if inspect.iscoroutinefunction(callback):
             raise Exception("Did you mean ot create a coroutine (got: {})".format(callback))
 
         if not inspect.iscoroutine(callback):
             callback = partial(callback, *args, **kwargs)
 
-        self.ready[callback] = None, None
+        self.ready[callback] = None
 
     def set_timeout(self, callback, timeout):
+        """
+
+        call the callback after `timeout` seconds
+        """
         timer = Timer(callback, timeout)
         timer.start(self)
         self._awaiting.setdefault(timer, [])
@@ -70,6 +93,7 @@ class Loop(_Loop):
 
     @property
     def exceptions(self):
+        'exceptions'
         return self._exceptions
 
     def catch(self, err):
@@ -92,11 +116,11 @@ class Loop(_Loop):
 
 
     def completed(self, future):
-        print("completed", self, future)
+
         coroutines = self._awaiting.pop(future, [])
-        print("coroutines", coroutines)
-        self.ready.update({coroutine: (None, future.exception()) for coroutine in coroutines})
-        print("self.ready", self.ready)
+
+        self.ready.update({coroutine: future for coroutine in coroutines})
+
         if self.ready:
             self.ref_ticker()
 
@@ -112,10 +136,10 @@ class Loop(_Loop):
             # there is nothing ready
             self.unref_ticker()
             return
-        coroutine_or_func, (args, exception) = self.ready.popitem()
+        coroutine_or_func, future = self.ready.popitem()
 
         if inspect.iscoroutine(coroutine_or_func):
-            process_until_await(self, coroutine_or_func, args, exception)
+            process_until_await(self, future, coroutine_or_func)
         else:
             coroutine_or_func()
 
@@ -136,16 +160,29 @@ class Loop(_Loop):
 
 
 
+
 class get_current_loop:
+    """get_current_loop()
+
+    This awaitable coroutine returns the loop that is currently processing the
+    outer async function::
+
+        loop = await get_current_loop()
+
+    """
     _done = False
 
     def exception(self):
         pass
+
     def done(self):
         return self._done
 
     def ensure_started(self, loop):
         self.loop = loop
+
+    def before_send(self):
+        pass
 
     def __await__(self):
         self._done = True

@@ -240,7 +240,13 @@ class ReturnCode(Future):
 
 
 class Popen(Handle, Future):
+    '''Popen(stdin=None, stdout=None, stderr=None)
 
+    Execute a child program in a new process.
+
+    :param args: args should be a sequence of program arguments.
+
+    '''
     def __init__(self, args, stdin=None, stdout=None, stderr=None, **kwargs):
 
         if stdin == PIPE:
@@ -265,7 +271,10 @@ class Popen(Handle, Future):
         return self
 
     def kill(Handle self, int signum=signal.SIGKILL):
+        """kill(signum=signal.SIGKILL)
 
+        Kill this process
+        """
         failure = uv_process_kill(&self.handle.process, signum)
 
         if failure:
@@ -315,22 +324,40 @@ class Popen(Handle, Future):
 
     @property
     def stdout(self):
+        '''If the stdout argument was PIPE,
+        this attribute is a :class:`Pipe` object that provides input to the child process. Otherwise, it is None.
+        '''
+
         return self.options.stdout
 
     @property
     def stdin(self):
+        '''If the stdin argument was PIPE,
+        this attribute is a :class:`Pipe` object that provides input to the child process. Otherwise, it is None.
+        '''
+
         return self.options.stdin
 
     @property
     def stderr(self):
+        '''If the stderr argument was PIPE,
+        this attribute is a :class:`Pipe` object that provides input to the child process. Otherwise, it is None.
+        '''
         return self.options.stderr
 
     @property
     def returncode(self):
+        '''
+        this property returns an awaitable coroutine::
+
+            returncode = await process.returncode
+        '''
+
         return self._returncode
 
     @property
     def pid(Handle self):
+        'The pid of the child process'
         return self.handle.process.pid
 
 

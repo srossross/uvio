@@ -1,25 +1,37 @@
 from functools import wraps, partial
 from inspect import iscoroutine
-from .loop import Loop
+from .loop import Loop, get_current_loop
 from .timer import Timer
 from .idle import Idle
 from .workers import worker
+from .stream import Stream
 from . import fs
 
 get_default_loop = Loop.get_default_loop
 
 
-def run(*func, timeout=None):
+def sync(*func, timeout=None):
+    """
+    coroutine decorator, convert a coroutine into a syncronous function::
+
+        @sync(timeout=2)
+        async def main(sleep_for):
+            await uvio.sleep(sleep_for)
+            return 'main returned ok!'
+
+        print(main(1))
+
+    """
     if not func:
-        return partial(run, timeout=timeout)
+        return partial(sync, timeout=timeout)
 
     func = func[0]
 
     @wraps(func)
-    def inner(self):
+    def inner(*args, **kwargs):
         loop = Loop.create(func.__name__)
 
-        coro = func(self)
+        coro = func(*args, **kwargs)
 
         if not iscoroutine(coro):
             raise Exception("{} is not a coroutine (returned from {})".format(coro, func))
@@ -61,6 +73,8 @@ def run(*func, timeout=None):
     return inner
 
 def sleep(timeout):
+    '''Coroutine that completes after a given time (in seconds).
+    '''
     return Timer(None, timeout)
 
 

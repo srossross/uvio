@@ -8,8 +8,9 @@ from .request cimport Request
 from ._loop cimport Loop
 from .handle cimport Handle
 
-from .buffer_utils import StreamRead, StreamReadline
 import inspect
+
+from .buffer_utils import StreamRead, StreamReadline
 from .futures import Future
 
 cdef void new_connection_callback(uv_stream_t* _handle, int status) with gil:
@@ -113,6 +114,13 @@ class StreamWrite(Request, Future):
 
 
 class Stream(Handle):
+    """
+    Stream handles provide an abstraction of a duplex communication channel.
+
+    The :class:`Stream` is an abstract type,
+    uvio provides stream implementations for uvio.net and uvio.pipes
+
+    """
 
     def __init__(self):
         self._paused = False
@@ -121,10 +129,11 @@ class Stream(Handle):
         self._buffering = False
         self._read_buffer = b''
         self._eof = False
-        self._reader = None
+        self._readers = []
 
     @property
     def buffering(self):
+        'TODO: document this important function. used by read and readline'
         return self._buffering
 
     @buffering.setter
@@ -141,26 +150,61 @@ class Stream(Handle):
         )
 
     def unshift(self, buf):
-        if not self.buffering:
-            raise Exception("this stream is not buffering input")
+        '''unshift(buf)
+        Not implemented:
+        unshift a buffer
+        '''
+        raise NotImplementedError("this stream is not buffering input")
 
 
         self._read_buffer = buf + self._read_buffer
 
     def read(self, n):
+        '''read(n)
+        read at most n bytes from the stream
+        '''
         self.buffering = True
-        if self._reader is not None:
-            raise Exception("already reading")
 
-        self._reader = StreamRead(self, n)
-        return self._reader
+        reader = StreamRead(self, n)
+
+        if not reader.done():
+            self._readers.append(reader)
+
+        return reader
 
 
-    def readline(self, max_size=None):
-        return StreamReadline(self, max_size)
+    def readline(self, max_size=None, end=b'\n'):
+        '''readline(max_size=None, end=b'\\n')
+        read and return bytes until `end` is encountered
+        '''
+        self.buffering = True
+
+        reader = StreamReadline(self, max_size, end)
+
+        if not reader.done():
+            self._readers.append(reader)
+
+        return reader
+
 
     def data(self, coro_func):
+        '''data(coro_func)
 
+        Register a data callback for asyncronous data collection.
+
+        :param coro_func:
+
+        eg::
+
+            stream.data(collect_data)
+
+        or eg::
+
+            @stream.data
+            def collect_data(buf):
+                result = do_somthing(buf)
+
+        '''
         if not self.readable():
             raise IOError("stream is not readable")
 
@@ -171,13 +215,23 @@ class Stream(Handle):
         if self.buffering:
             self._read_buffer += buf
 
-            if self._reader:
-                self._reader.notify()
+            while self._readers:
+                if self._readers[0].done():
+                    reader = self._readers.pop(0)
+                    reader.notify()
+
 
         for listener in self._data_listeners:
-            listener(buf)
+            result = listener(buf)
+            if inspect.iscoroutine(result):
+                self.loop.next_tick(result)
 
     def end(self, coro_func):
+        '''end(coro_func)
+
+        Register a data callback for when the end of the stream is reached
+
+        '''
 
         if not self.readable():
             raise IOError("stream is not readable")
@@ -188,36 +242,62 @@ class Stream(Handle):
     def notify_end_listeners(self):
 
         self._eof = True
-        if self._reader:
-            self._reader.notify()
+
+        while self._readers:
+            if self._readers[0].done():
+                reader = self._readers.pop(0)
+                reader.notify()
+
 
         for listener in self._end_listeners:
-            listener()
+            result = listener()
+
+            if inspect.iscoroutine(result):
+                self.loop.next_tick(result)
+
 
 
     def readable(Handle self):
+        '''readable()
+        Test if stream is readable'''
         return bool(uv_is_readable(&self.handle.stream))
 
     def writable(Handle self):
+        '''writable()
+        Test if stream is writable
+        '''
         return bool(uv_is_writable(&self.handle.stream))
 
     @property
     def mode(self):
+        'mode of the stream (same as python file objects)'
         return '{}{}'.format('r' if self.readable() else '', 'w' if self.writable() else '',)
 
 
     def write(Handle self, bytes buf):
+        '''write(buf)
 
+        write to the stream. It is optional to await for the write to succeed.
+        '''
         if not self.writable():
             raise IOError("stream is not writable")
 
         return StreamWrite(self, buf)
 
     def paused(Handle self):
+        '''paused()
+
+        Test if the stream is paused.
+        '''
         return not <int> self.handle.stream.alloc_cb
 
     def resume(Handle self):
+        '''resume()
+        Un-pause the stream. resume the data and end callback functions.
 
+        when the stream is resumed the registered stream.data callback functions will be called
+        asyncronously until the eof is reached or the stream is paused.
+        '''
         if not self.readable():
             raise IOError("stream is not readable")
 
@@ -234,6 +314,10 @@ class Stream(Handle):
         )
 
     def pause(Handle self):
+        '''pause()
+
+        pause the stream
+        '''
         if self.paused():
             return
 
@@ -245,6 +329,16 @@ class Stream(Handle):
     _shutdown = None
 
     def shutdown(Handle self):
+        '''shutdown()
+
+        Shutdown the outgoing (write) side of a duplex stream.
+        It waits for pending write requests to complete.
+
+        This method is awaitable.
+
+
+
+        '''
         if not self.writable():
             raise IOError("stream is not writable")
 
@@ -269,9 +363,7 @@ class Stream(Handle):
         self.loop.awaiting(self)
 
     def accept(Handle self, status):
-        print("-- Accept --")
-        print("accept", self, status)
-        print("-- Accept --")
+
 
         cdef Handle client = self.get_client()
 
@@ -295,6 +387,9 @@ class Stream(Handle):
 
 
     def close(self):
+        '''close()
+        close the stream
+        '''
         self.loop.completed(self)
         Handle.close(self)
 

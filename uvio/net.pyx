@@ -116,6 +116,10 @@ cdef class AddrInfo:
     cdef addrinfo _info
 
 class getaddrinfo(Request, Future):
+    '''getaddrinfo(hostname, port=80)
+
+    Resolve host and port into address info entry.
+    '''
 
     def __init__(self, hostname, port=80):
         self.hostname = hostname
@@ -161,12 +165,60 @@ class getaddrinfo(Request, Future):
 
 
 async def listen(handler, host, port, backlog=511):
+    '''listen(handler, host, port, backlog=511)
+
+    listen for incoming network connections on host and port.
+
+    Start listening for incoming connections.
+    backlog indicates the number of connections the kernel might queue, same as listen(2).
+
+    When a new incoming connection is received the handler callback is called.
+
+    :param handler: a callback that accepts a socket as a parameter
+    :param host: the hostname to bind to
+    :param port: the port to bind
+    :param backlog: The backlog argument defines the maximum length to which the queue of pending connections.
+
+    If a connection request arrives when the queue is full, the client may receive an error with an indication of ECONNREFUSED
+
+    example::
+
+        async def echo_handler(socket):
+
+            @socket.data
+            def echo(buf):
+                print("server: on data", buf)
+                socket.write(b"echo: " + buf)
+                socket.close()
+
+            @socket.end
+            def end():
+                print("on socket end")
+
+        server = await uvio.net.listen(echo_handler, "127.0.0.1", 8281)
+
+    '''
+
     server = Server(await get_current_loop(), handler)
     server.bind(host, port)
     server.listen(backlog)
     return server
 
 async def connect(host, port):
+    '''connect(host, port)
+
+    Establish a TCP connection.
+
+    example::
+
+        socket = await uvio.net.connect("google.com", 80)
+
+        await socket.write(b'GET / HTTP/1.1\\r\\n\\r\\n')
+
+        print(await socket.readline())
+        socket.close()
+    '''
+
     addr = await  getaddrinfo(host, port)
     return await Connect(addr, port)
 

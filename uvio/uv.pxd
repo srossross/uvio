@@ -2,9 +2,9 @@ from libc.stdint cimport uint64_t, int64_t
 
 cdef extern from "uv.h":
 
-    cdef  enum uv_run_mode:
-      UV_RUN_DEFAULT,
-      UV_RUN_ONCE,
+    ctypedef enum uv_run_mode:
+      UV_RUN_DEFAULT
+      UV_RUN_ONCE
       UV_RUN_NOWAIT
 
     ctypedef struct uv_loop_t:
@@ -15,7 +15,7 @@ cdef extern from "uv.h":
     int uv_loop_close(uv_loop_t*)
     uv_loop_t* uv_default_loop()
 
-    void uv_run(uv_loop_t*, uv_run_mode) nogil
+    int uv_run(uv_loop_t*, uv_run_mode) nogil
     void uv_stop(uv_loop_t*)
 
     int uv_loop_alive(uv_loop_t*)

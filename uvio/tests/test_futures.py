@@ -1,6 +1,6 @@
 import unittest
 
-from uvio import run
+from uvio import sync
 from uvio.futures import Future
 
 class F(Future):
@@ -20,14 +20,14 @@ class Err(Future):
 
 class Test(unittest.TestCase):
 
-    @run(timeout=2.0)
+    @sync(timeout=2.0)
     async def test_future(self):
 
         ok = await F()
         self.assertEqual("ok", ok)
 
 
-    @run(timeout=2.0)
+    @sync(timeout=2.0)
     async def test_error(self):
 
         with self.assertRaises(TypeError):

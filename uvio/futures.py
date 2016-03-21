@@ -15,6 +15,10 @@ class Future:
     def done(self):
         return self._done
 
+    def before_send(self):
+        pass
+
+
     def ensure_started(self, loop):
 
         if self._started:

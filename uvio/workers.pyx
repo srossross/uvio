@@ -34,6 +34,41 @@ cdef void worker_cleanup_callback(uv_work_t * _req, int status) with gil:
         req.completed(status)
 
 class worker(Request, Future):
+    """worker(callback, *args, **kwargs)
+
+    libuv provides a threadpool which can be used to run user code and get notified in the loop thread.
+    This thread pool is internally used to run all filesystem operations,
+    as well as getaddrinfo and getnameinfo requests.
+
+    Its default size is 4,
+    but it can be changed at startup time by setting the UV_THREADPOOL_SIZE environment variable
+    to any value (the absolute maximum is 128).
+
+    The threadpool is global and shared across all event loops.
+    When a particular function makes use of the threadpool
+    (i.e. when using worker()) libuv preallocates and initializes the maximum number of threads allowed by UV_THREADPOOL_SIZE.
+    This causes a relatively minor memory overhead (~1MB for 128 threads) but increases the performance of threading at runtime.
+
+    example::
+
+        def compute(arg):
+            # Blocking operation. This is not an async sleep!
+
+            if arg > 1:
+                raise TypeError("arg must be less than 1")
+
+            time.sleep(0.05)
+
+            return arg - 1
+
+        @uvio.sync
+        async def main():
+            try:
+                result = await worker(worker, -1)
+            except TypeError:
+                print("wow!! exceptions are passed back to the main thread?")
+
+    """
 
     def __init__(self, callback, *args, **kwargs):
 

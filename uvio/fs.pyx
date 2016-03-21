@@ -1,3 +1,6 @@
+"""
+libuv file system operations
+"""
 from libc.stdlib cimport malloc, free
 from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF
 
@@ -156,7 +159,7 @@ class AsyncFile(FileHandle, Future):
         self.close()
 
     def close(Request self):
-
+        'Close the file'
         cdef uv_fs_t close_handle
 
         uv_fs_close(
@@ -176,13 +179,33 @@ class AsyncFile(FileHandle, Future):
         return stat_handle.statbuf.st_size
 
     def read(Request self, n=-1):
+        '''
+        Read from underlying buffer until we have n characters or we hit EOF.
+        If n is negative or omitted, read until EOF.
 
+        the read must be awaited e.g.::
+
+            async with uvio.fd.open('data.txt') as fd:
+                data = await fd.read()
+        '''
         if n <= 0:
             n = self._size()
 
         return Read(self, n)
 
     def write(Request self, data):
+        '''Write string to stream.
+        Returns the number of characters written (which is always equal to
+        the length of the string).
+
+        awaiting a write is optional e.g.::
+
+            async with uvio.fd.open('data.txt', 'w') as fd:
+                n = await fd.write(b'some bytes')
+                fd.write(b'some more bytes')
+
+        '''
+
         return Write(self, data)
 
     async def stream(Request self):
@@ -229,5 +252,9 @@ def fstat(Request fd):
         statbuf['st_ctim']['tv_sec']
     ))
 
-open = AsyncFile
+def open(filename, mode='r'):
+    """
+    Open a file
+    """
+    return AsyncFile(filename, mode=mode)
 
