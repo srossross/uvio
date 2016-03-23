@@ -22,7 +22,7 @@ setup(
   name = 'uvio',
   url='http://github.com/srossross/uvio',
   version=versioneer.get_version(),
-  cmdclass=versioneer.get_cmdclass()
+  cmdclass=versioneer.get_cmdclass(),
   ext_modules=cythonize(extensions),
   packages=find_packages(),
   description='asyncio replacement library using libuv',
