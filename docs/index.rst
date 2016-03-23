@@ -10,6 +10,21 @@ This module provides infrastructure for writing single-threaded concurrent code 
 
 This is a complete replacement for python's `asyncio <https://docs.python.org/3.4/library/asyncio.html>`_ module.
 
+Features
+--------
+
+ * Full-featured event loop backed by epoll, kqueue, IOCP, event ports.
+ * Asynchronous TCP and UDP sockets
+ * Asynchronous DNS resolution
+ * Asynchronous file and file system operations
+ * IPC with socket sharing, using Unix domain sockets or named pipes (Windows)
+ * Child processes
+ * Thread pool
+ * TODO: File system events
+ * TODO: ANSI escape code controlled TTY
+ * TODO: Signal handling
+ * TODO: High resolution clock
+ * TODO: Threading and synchronization primitives
 
 Contents:
 
@@ -17,7 +32,12 @@ Contents:
    :maxdepth: 2
 
    event_loop
+   subprocess
+   pipes
+   streams
+
    api
+
 
 
 Indices and tables

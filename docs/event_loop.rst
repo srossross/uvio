@@ -10,6 +10,42 @@ The UV Event Loop
 Event loop examples
 -------------------
 
+Execute async fuctions with uvio.sync()
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Often you don't care about the event loop if that is
+the case and you just want to get things done use the
+:function:`uvio.sync` decorator::
+
+
+    import uvio
+
+    @uvio.sync
+    async def main(args):
+        await uvio.sleep(1)
+        print("OK!")
+
+    if __name__ == '__main__':
+        main()
+
+
+
+
+
+Display the current date with get_current_loop()
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+with asyncio, the loop parameter often needs to be a part of the function call args
+with uvio use `get_current_loop` wich will return the loop running the current coroutine::
+
+    import uvio
+
+    @uvio.sync
+    async def main(args):
+
+        loop = await uvio.get_current_loop()
+        print(loop)
+
 
 Hello World with next_tick()
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
