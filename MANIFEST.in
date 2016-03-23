@@ -1,0 +1,2 @@
+include versioneer.py
+include uvio/_version.py
