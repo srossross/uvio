@@ -32,6 +32,7 @@ Contents:
    :maxdepth: 2
 
    event_loop
+   coroutines
    subprocess
    pipes
    streams
