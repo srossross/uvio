@@ -6,6 +6,7 @@ from .idle import Idle
 from .workers import worker
 from .stream import Stream
 from . import fs
+from . import net
 
 get_default_loop = Loop.get_default_loop
 
@@ -41,14 +42,6 @@ def sync(*func, timeout=None):
         if timeout:
             def stop_loop():
                 loop.stop()
-
-                print('loop._awaiting', loop._awaiting)
-                print('loop.ready', loop.ready)
-                print('-+')
-                @loop.walk
-                def walk(h):
-                    print("handle", h)
-                print('-+')
                 raise Exception("timeout")
 
 
@@ -65,12 +58,12 @@ def sync(*func, timeout=None):
         if coro.cr_await is not None:
             coro.throw(Exception('coroutine {} should not be running at the end of the loop'.format(coro)))
 
+        # This should not happend
         assert not loop._awaiting, loop._awaiting
         assert not loop.ready, loop.ready
 
-
-
     return inner
+
 
 def sleep(timeout):
     '''Coroutine that completes after a given time (in seconds).
@@ -78,13 +71,18 @@ def sleep(timeout):
     return Timer(None, timeout)
 
 
-def release():
-    """
-    Release the currect execution context and return to it in the next tick of the
-    event loop
-    """
+async def set_timeout(func, timeout, repeat=None):
+    '''Coroutine that starts after a given time (in seconds).
+    '''
+    loop = await get_current_loop()
+    return loop.set_timeout(func, timeout, repeat=repeat)
 
-    return Idle(None)
+
+async def next_tick(func, *args, **kwargs):
+    '''Coroutine that starts after being idle
+    '''
+    loop = await get_current_loop()
+    return loop.next_tick(func, *args, **kwargs)
 
 
 from ._version import get_versions

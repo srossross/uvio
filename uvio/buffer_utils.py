@@ -30,10 +30,14 @@ class StreamRead(Future):
         self.loop = loop
 
     def done(self):
+
+        if self._result is not None:
+            return True
+
         if self.stream._eof:
             return True
-        else:
-            return len(self.stream._read_buffer) >= self.size
+
+        return len(self.stream._read_buffer) >= self.size
 
     def read_result(self):
         self._result = self.stream._read_buffer[:self.size]
