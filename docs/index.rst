@@ -38,13 +38,13 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-   event_loop
-   coroutines
-   process
-   fs
-   net
-   pipes
-   api
+   src/event_loop
+   src/coroutines
+   src/process
+   src/fs
+   src/net
+   src/pipes
+   src/api
 
 
 
