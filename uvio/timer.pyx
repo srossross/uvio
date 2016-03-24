@@ -13,20 +13,12 @@ from .futures import Future
 cdef void timer_callback(uv_timer_t* _handle) with gil:
 
     if not _handle.data:
-        raise RuntimeError("uv idle callback recieved NULL python object")
+        return
+
 
     handle = <object> _handle.data
-    try:
-        handle.__uv_complete__()
-    except BaseException as err:
-        handle.loop.catch(err)
-    else:
-        handle.loop.completed(handle)
-
-
-
-async def sleep(timeout):
-    await Timer(None, timeout)
+    handle.completed()
+    return
 
 
 class Timer(Handle, Future):
@@ -49,8 +41,8 @@ class Timer(Handle, Future):
         uv_timer_start(
             &self.handle.timer,
             timer_callback,
-            int(self.timeout * 1000),
-            int(self.repeat * 1000)
+            int((self.timeout or 0) * 1000),
+            int((self.repeat or 0) * 1000)
         )
 
         return self
@@ -59,7 +51,14 @@ class Timer(Handle, Future):
         self._completed = time.time()
 
         if self._callback:
-            self._callback()
+            value = self._callback()
+
+            if inspect.iscoroutine(value):
+                self.loop.next_tick(value)
+
+        if self.is_active():
+            self.loop.awaiting(self)
+
 
     def __repr__(self):
         return "<uv.Timer active={} timout={:.4f}s callback={}>".format(

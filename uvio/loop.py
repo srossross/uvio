@@ -73,12 +73,12 @@ class Loop(_Loop):
 
         self.ready[callback] = None
 
-    def set_timeout(self, callback, timeout):
+    def set_timeout(self, callback, timeout, repeat=None):
         """
 
         call the callback after `timeout` seconds
         """
-        timer = Timer(callback, timeout)
+        timer = Timer(callback, timeout, repeat)
         timer.start(self)
         self._awaiting.setdefault(timer, [])
         return timer

@@ -77,11 +77,14 @@ cdef class Handle:
         self._done = True
 
     def completed(self, *args):
+
+        self.loop.completed(self)
+
         try:
             self.__uv_complete__(*args)
         except BaseException as err:
-            self.loop.catch(self, err)
-        else:
-            self.loop.completed(self)
+            self.loop.catch(err)
+
+
 
 

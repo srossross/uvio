@@ -1,8 +1,8 @@
 import unittest
 
-
+from uvio import sleep
 from uvio.loop import Loop
-from uvio.timer import Timer, sleep
+from uvio.timer import Timer
 from uvio.handle import Handle
 
 class Test(unittest.TestCase):

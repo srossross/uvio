@@ -404,3 +404,6 @@ class Stream(Handle):
 
         return stream
 
+    def __rshift__(self, other):
+        return self.pipe(other)
+

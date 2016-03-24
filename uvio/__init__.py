@@ -5,8 +5,10 @@ from .timer import Timer
 from .idle import Idle
 from .workers import worker
 from .stream import Stream
+
 from . import fs
 from . import net
+from . import process
 
 get_default_loop = Loop.get_default_loop
 
