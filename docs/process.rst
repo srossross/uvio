@@ -16,9 +16,9 @@ Example of a subprocess protocol using to get the output of a subprocess and to 
         # Create the subprocess controlled by the protocol DateProtocol,
         # redirect the standard output into a pipe
 
-        process = await uvio.subprocess.Popen(
+        process = await uvio.process.Popen(
            [sys.executable, '-c', code],
-            stdin=None, stderr=None, stdout=uvio.subprocess.PIPE
+            stdin=None, stderr=None, stdout=uvio.process.PIPE
         )
 
 

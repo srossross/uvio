@@ -30,7 +30,7 @@ Coroutines
 .. autofunction:: uvio.worker
 
 
-.. module:: uvio.subprocess
+.. module:: uvio.process
 
 Subprocess Module
 -----------------

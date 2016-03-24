@@ -1,15 +1,15 @@
-Stream
+Network
 =======================
 
 
-Stream examples
+Network examples
 -----------------
 
 
 TCP echo client
 ^^^^^^^^^^^^^^^^
 
-example::
+example ::
 
     import uvio
 
@@ -42,7 +42,7 @@ example::
 TCP echo server
 ^^^^^^^^^^^^^^^^
 
-example::
+example ::
 
     import uvio
 

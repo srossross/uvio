@@ -63,7 +63,7 @@ async with fs.open('test_write.txt', 'w') as fd:
 ## Subprocess
 
 ```
-from uvio.subprocess import Popen, PIPE
+from uvio.process import Popen, PIPE
 echo = await Popen(['echo', 'hello world'], stdout=PIPE)
 
 @echo.stdout.data
@@ -77,7 +77,7 @@ print('echo exited with status code', await echo.returncode)
 ### Pipe output from one process to another
 
 ```
-from uvio.subprocess import Popen, PIPE
+from uvio.process import Popen, PIPE
 echo = await Popen(['echo', 'hello world'], stdout=PIPE)
 cat = await Popen(['cat', '-'], stdin=PIPE, stdout=sys.stdout)
 

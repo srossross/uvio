@@ -6,7 +6,7 @@ from functools import wraps
 import sys
 import uvio
 
-from uvio.subprocess import ProcessOptions, Popen, PIPE
+from uvio.process import ProcessOptions, Popen, PIPE
 from uvio import sync
 from uvio.pipes import Pipe
 from inspect import iscoroutinefunction

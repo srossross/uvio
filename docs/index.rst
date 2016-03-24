@@ -6,9 +6,16 @@
 Welcome to uvio!
 ================================
 
-This module provides infrastructure for writing single-threaded concurrent code using coroutines, multiplexing I/O access over sockets and other resources, running network clients and servers, named pipes, threadding, subprocesses and more.
+This module provides infrastructure for writing single-threaded concurrent code using coroutines, multiplexing I/O access over sockets and other resources, running network clients and servers, named pipes, threadding, subprocesses and more. uvio is based off of `libuv <http://docs.libuv.org/>`_
+
+.. image:: _static/logo.png
+   :scale: 100 %
+   :alt: libuv
+   :align: center
+   :target: http://docs.libuv.org/
 
 This is a complete replacement for python's `asyncio <https://docs.python.org/3.4/library/asyncio.html>`_ module.
+
 
 Features
 --------
@@ -33,10 +40,10 @@ Contents:
 
    event_loop
    coroutines
-   subprocess
+   process
+   fs
+   net
    pipes
-   streams
-
    api
 
 

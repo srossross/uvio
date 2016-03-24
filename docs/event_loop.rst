@@ -15,7 +15,7 @@ Execute async fuctions with uvio.sync()
 
 Often you don't care about the event loop if that is
 the case and you just want to get things done use the
-:function:`uvio.sync` decorator::
+:py:func:`uvio.sync` decorator::
 
 
     import uvio
@@ -33,7 +33,7 @@ the case and you just want to get things done use the
 
 
 Display the current date with get_current_loop()
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 with asyncio, the loop parameter often needs to be a part of the function call args
 with uvio use `get_current_loop` wich will return the loop running the current coroutine::
