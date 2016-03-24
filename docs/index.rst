@@ -16,6 +16,13 @@ This module provides infrastructure for writing single-threaded concurrent code 
 
 This is a complete replacement for python's `asyncio <https://docs.python.org/3.4/library/asyncio.html>`_ module.
 
+Improvements over asyncio
+--------------------------
+
+ * Don't need to pass loop
+ * Don't care about loop
+ * handles keep loop running don't need to run_forever or run
+ * Don't care about what type of loop
 
 Features
 --------
