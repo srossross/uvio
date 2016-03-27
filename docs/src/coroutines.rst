@@ -1,6 +1,29 @@
 Coroutines
 ==========
 
+Coroutines Examples
+---------------------
+
+
+Parallel execution of tasks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Example ::
+
+    import uvio
+    from datetime import datetime
+
+    @uvio.sync
+    async def display_date():
+        end_time = datetime.now() + timedelta(seconds=5)
+        while True:
+            print(datetime.now())
+            if (datetime.now() + timedelta(seconds=5)) >= end_time:
+                break
+            await uvio.sleep(1)
+
+    display_date()
+
 
 Parallel execution of tasks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

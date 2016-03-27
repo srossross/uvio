@@ -25,7 +25,17 @@ class Future:
             return
 
         self._started = True
+        loop.awaiting(self)
         self.start(loop)
+
+    def completed(self, *args):
+
+        self.loop.completed(self)
+
+        try:
+            self.__uv_complete__(*args)
+        except BaseException as err:
+            self.loop.catch(err)
 
     def __uv_complete__(self):
         return None

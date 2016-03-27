@@ -67,11 +67,3 @@ cdef class Request:
 
     def __uv_complete__(self, *args):
         self._done = True
-
-    def completed(self, *args):
-        try:
-            self.__uv_complete__(*args)
-        except BaseException as err:
-            self.loop.catch(err)
-        else:
-            self.loop.completed(self)

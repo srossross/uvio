@@ -76,14 +76,6 @@ cdef class Handle:
     def __uv_complete__(self, *args):
         self._done = True
 
-    def completed(self, *args):
-
-        self.loop.completed(self)
-
-        try:
-            self.__uv_complete__(*args)
-        except BaseException as err:
-            self.loop.catch(err)
 
 
 

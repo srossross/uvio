@@ -71,6 +71,8 @@ class StreamShutdown(Request, Future):
     def __init__(Request self, stream):
         self.stream = stream
 
+        self.req.shutdown.data = <void*> self
+
         uv_shutdown(
             &self.req.shutdown,
             &(<Handle> self.stream).handle.stream,
@@ -95,6 +97,7 @@ class StreamWrite(Request, Future):
         cdef uv_buf_t uv_buf = uv_buf_init(self.buf, len(self.buf))
 
         self.req.req.data = <void*> self
+
         failure = uv_write(
             &self.req.write,
             &(<Handle> self.stream).handle.stream,
@@ -105,6 +108,8 @@ class StreamWrite(Request, Future):
         if failure:
             msg = "Write error {}".format(uv_strerror(failure).decode())
             raise IOError(failure,  msg)
+
+        stream.loop.awaiting(self)
 
     def __uv_complete__(self, status):
         if status < 0:
@@ -345,8 +350,7 @@ class Stream(Handle):
         if self.closing():
             raise IOError("stream is closing")
 
-        if self._shutdown is None:
-            self._shutdown = StreamShutdown(self)
+        return StreamShutdown(self)
 
         return self._shutdown
 

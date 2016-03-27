@@ -28,6 +28,8 @@ class StreamRead(Future):
 
     def start(self, loop):
         self.loop = loop
+        if self.done():
+            self.completed()
 
     def done(self):
 

@@ -237,6 +237,7 @@ class ReturnCode(Future):
                 pipe = <object> options.opts.stdio[i].data.stream.data
                 if not pipe.closing():
                     pipe.close()
+                    self.loop.completed(pipe)
 
 
 class Popen(Handle, Future):
@@ -320,7 +321,7 @@ class Popen(Handle, Future):
         # This is awaited just to get the loop
         # To await the exit users can do `await popen.returncode`
         self._done = True
-
+        self.completed()
 
     @property
     def stdout(self):

@@ -9,6 +9,8 @@ class F(Future):
     def start(self, loop):
         self._done = True
         self._result = 'ok'
+        self.loop = loop
+        self.completed()
 
 
 class Err(Future):
@@ -16,7 +18,9 @@ class Err(Future):
 
     def start(self, loop):
         self._done = True
+        self.loop = loop
         self._exception = TypeError("what?")
+        self.completed()
 
 class Test(unittest.TestCase):
 

@@ -8,21 +8,23 @@ Welcome to uvio!
 
 This module provides infrastructure for writing single-threaded concurrent code using coroutines, multiplexing I/O access over sockets and other resources, running network clients and servers, named pipes, threadding, subprocesses and more. uvio is based off of `libuv <http://docs.libuv.org/>`_
 
-.. image:: _static/logo.png
-   :scale: 100 %
-   :alt: libuv
-   :align: center
-   :target: http://docs.libuv.org/
 
 This is a complete replacement for python's `asyncio <https://docs.python.org/3.4/library/asyncio.html>`_ module.
 
-Improvements over asyncio
+Motivation
 --------------------------
 
- * Don't need to pass loop
- * Don't care about loop
+ * Because I can
+ * Provide async filesystem objects
+ * Better subprocess support
+
+Why not AsyncIO?
+----------------
+
+ * We don't need to care about the event loop. In asyncio, the event loop is very prominent.
+   A user does not need to care about the type of event loop they are using
+ * Don't need to pass loop to every function. In many of the `examples <https://docs.python.org/3/library/asyncio-task.html#example-coroutine-displaying-the-current-date>` in asyncio this is the case.
  * handles keep loop running don't need to run_forever or run
- * Don't care about what type of loop
 
 Features
 --------
@@ -46,11 +48,13 @@ Contents:
    :maxdepth: 2
 
    src/event_loop
+   src/workers
    src/coroutines
    src/process
    src/fs
    src/net
    src/pipes
+
    src/api
 
 
