@@ -15,11 +15,6 @@ example ::
 
     message = 'Hello World!'
 
-    def handler(socket):
-
-    loop = asyncio.get_event_loop()
-    message = 'Hello World!'
-
     @uvio.sync
     async def main():
 
@@ -35,7 +30,8 @@ example ::
         @socket.end
         def connection_lost():
             print('The server closed the connection')
-            print('Stop the event loop')
+            print('Stop the event loop by closing the all open handles')
+            print('One could aslo call loop.close()')
             socket.close()
 
 

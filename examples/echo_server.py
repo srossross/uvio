@@ -2,8 +2,6 @@ import uvio
 
 async def echo(server, socket):
 
-    socket.resume()
-
     @socket.data
     def respond(buf):
         resp = b'Got:' + line

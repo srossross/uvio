@@ -129,7 +129,7 @@ class Pipe(Stream):
     def get_client(Handle self):
         return Pipe(self.loop)
 
-    def sockname(Handle self):
+    def getsockname(Handle self):
         cdef size_t size = 1024
         _buffer = <object> PyBytes_FromStringAndSize(NULL, size)
 

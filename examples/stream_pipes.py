@@ -4,9 +4,17 @@ import uvio
 
 async def run_awk():
 
-    date = await uvio.process.Popen(['date'], stdout=uvio.process.PIPE)
-    awk = await uvio.process.Popen(['awk', '{print "[AWKED] " $0}'], stdin=uvio.process.PIPE, stdout=sys.stdout)
+    date = await uvio.process.Popen(
+        ['date'], stdout=uvio.process.PIPE
+    )
 
+    awk = await uvio.process.Popen(
+        ['awk', '{print "[AWKED] " $0}'],
+        stdin=uvio.process.PIPE,
+        stdout=sys.stdout
+    )
+
+    # pipe stdout of the date program to the stdin of awk
     print(date.stdout >> awk.stdin)
 
     date.stdout.pipe(sys.stdout.buffer, end=False)
@@ -20,7 +28,7 @@ async def main():
 
     timer = await uvio.set_timeout(run_awk, 1, 1)
 
-    await run_awk()
+    # await run_awk()
 
 
 if __name__ == '__main__':

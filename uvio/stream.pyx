@@ -376,15 +376,16 @@ class Stream(Handle):
         if failure:
             client.close()
             msg = "Accept error {}".format(uv_strerror(failure).decode())
-            raise IOError(failure,  msg)
+            self.loop.catch(IOError(failure,  msg))
         else:
             coro = self._handler(client)
-
             try:
                 client.resume()
                 coro.send(None)
             except StopIteration:
                 pass
+            except BaseException as err:
+                self.loop.catch(err)
             else:
 
                 self.loop.next_tick(coro)

@@ -18,6 +18,20 @@ Motivation
  * Provide async filesystem objects
  * Better subprocess support
 
+Kitchen Sink
+------------
+
+Example::
+
+   import uvio
+
+   @uvio.sync
+   async def main():
+
+
+   if __name__ == '__main__':
+      main()
+
 Why not AsyncIO?
 ----------------
 

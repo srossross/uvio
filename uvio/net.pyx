@@ -50,7 +50,7 @@ class TCP(Stream):
             msg = "Bind error: {}".format(uv_strerror(failure).decode())
             raise IOError(failure,  msg)
 
-    def sockname(Handle self):
+    def getsockname(Handle self):
         cdef int size = sizeof(sockaddr_in);
         cdef SockAddrIn addr = SockAddrIn()
         uv_tcp_getsockname(&self.handle.tcp, <sockaddr*> &addr._addr, &size);

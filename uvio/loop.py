@@ -56,6 +56,9 @@ class Loop(_Loop):
         self.ready = {}
         self._awaiting = {}
 
+    def set_exception_handler(self, exception_handler):
+        self.exception_handler = exception_handler
+
     def next_tick(self, callback, *args, **kwargs):
         """
         Once the current event loop turn runs to completion,

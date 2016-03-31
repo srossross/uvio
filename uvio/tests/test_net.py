@@ -75,6 +75,34 @@ class Test(unittest.TestCase):
         print("Server", server)
         await connection()
 
+
+    def test_handle_exception(self):
+
+        server = None
+
+        async def _test_handle_exception():
+            nonlocal server
+            async def handler(socket):
+                print("handler")
+                socket.close()
+                raise ValueError("handler")
+
+            server = await uvio.net.listen(handler, "127.0.0.1", 8281)
+            client = await connect("127.0.0.1", 8281)
+
+        loop = uvio.Loop.create("test_handle_exception")
+
+        loop.next_tick(_test_handle_exception())
+
+        with self.assertRaises(ValueError):
+            loop.run()
+
+        server.close()
+
+
+
+
+
     @uvio.sync(timeout=2)
     async def test_client_connect(self):
 
