@@ -3,20 +3,30 @@ from Cython.Build import cythonize
 from distutils.extension import Extension
 
 import versioneer
+import sys
+import os
 
+include_dirs = [os.path.join(sys.prefix, "include")]
+library_dirs = [os.path.join(sys.prefix, "lib")]
+libraries = ["uv"]
 
+kwargs = {
+  'include_dirs': include_dirs,
+  'library_dirs': library_dirs,
+  'libraries': libraries
+}
 extensions = [
-    Extension("uvio._loop", ["uvio/_loop.pyx"], libraries=['uv']),
-    Extension("uvio.handle", ["uvio/handle.pyx"], libraries=['uv']),
-    Extension("uvio.idle", ["uvio/idle.pyx"], libraries=['uv']),
-    Extension("uvio.timer", ["uvio/timer.pyx"], libraries=['uv']),
-    Extension("uvio.fs", ["uvio/fs.pyx"], libraries=['uv']),
-    Extension("uvio.process", ["uvio/process.pyx"], libraries=['uv']),
-    Extension("uvio.stream", ["uvio/stream.pyx"], libraries=['uv']),
-    Extension("uvio.workers", ["uvio/workers.pyx"], libraries=['uv']),
-    Extension("uvio.net", ["uvio/net.pyx"], libraries=['uv']),
-    Extension("uvio.request", ["uvio/request.pyx"], libraries=['uv']),
-    Extension("uvio.pipes", ["uvio/pipes.pyx"], libraries=['uv']),
+    Extension("uvio._loop", ["uvio/_loop.pyx"], **kwargs),
+    Extension("uvio.handle", ["uvio/handle.pyx"], **kwargs),
+    Extension("uvio.idle", ["uvio/idle.pyx"], **kwargs),
+    Extension("uvio.timer", ["uvio/timer.pyx"], **kwargs),
+    Extension("uvio.fs", ["uvio/fs.pyx"], **kwargs),
+    Extension("uvio.process", ["uvio/process.pyx"], **kwargs),
+    Extension("uvio.stream", ["uvio/stream.pyx"], **kwargs),
+    Extension("uvio.workers", ["uvio/workers.pyx"], **kwargs),
+    Extension("uvio.net", ["uvio/net.pyx"], **kwargs),
+    Extension("uvio.request", ["uvio/request.pyx"], **kwargs),
+    Extension("uvio.pipes", ["uvio/pipes.pyx"], **kwargs),
 ]
 
 setup(
