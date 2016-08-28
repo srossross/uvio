@@ -12,10 +12,11 @@ dependencies:
     - bash miniconda.sh -b -p $MINICONDA
     - conda install anaconda-client conda=4.0.5 conda-build=1.20.0 -y
     - conda config --add channels sean
-    - conda install -y libuv Cython
+    - conda install -y libuv Cython 
   
   override:
     - $PYTHON setup.py install
 
-# test:
-#   ov
+test:
+  override:
+    - $PYTHON -m unittest discover
