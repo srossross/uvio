@@ -15,7 +15,7 @@ dependencies:
     - conda install -y libuv Cython 
   
   override:
-    - $PYTHON setup.py install
+    - $PYTHON setup.py develop
 
 test:
   override:
