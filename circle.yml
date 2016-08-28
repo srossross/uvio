@@ -1,0 +1,15 @@
+machine:
+  environment:
+    MINICONDA: /home/ubuntu/miniconda2
+    PATH: /home/ubuntu/miniconda2/bin:$PATH
+    PYTHONUNBUFFERED: 1
+
+dependencies:
+  pre:
+
+    - wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh
+    - bash Miniconda-latest-Linux-x86_64.sh -b
+    - conda install anaconda-client conda=4.0.5 conda-build=1.20.0 -y
+    - conda config --add channels sean
+    - conda install anaconda-client uvio
+

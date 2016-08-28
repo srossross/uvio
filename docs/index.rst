@@ -21,6 +21,8 @@ Motivation
 Kitchen Sink
 ------------
 
+.. highlight:: python
+
 Example::
 
    import uvio
